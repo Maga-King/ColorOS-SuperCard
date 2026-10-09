@@ -63,6 +63,17 @@ jobs:
           path: dist/
           if-no-files-found: error
           retention-days: 14
+      - name: 保存失败的依赖校验与产物比较报告
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: build-diagnostics
+          path: |
+            build/reports/dependency-verification/
+            dist/comparison.json
+            dist/apk-fingerprint.json
+          if-no-files-found: ignore
+          retention-days: 7
       - name: 清理签名临时文件
         if: always()
         shell: pwsh
