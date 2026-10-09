@@ -1,0 +1,10 @@
+id=supercard_host
+name=ColorOS SuperCard Host
+version=0.1
+versionCode=1
+author=local
+description=Original vivo SuperCard compatibility host in SystemUI
+minApiVersion=102
+targetApiVersion=102
+staticScope=true
+exceptionMode=protective

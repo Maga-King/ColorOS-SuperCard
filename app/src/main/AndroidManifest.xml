@@ -1,0 +1,33 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <permission android:name="dev.local.supercardhost.permission.READ_MEMORY_TRANSFER"
+        android:protectionLevel="signature" />
+    <queries>
+        <package android:name="com.coloros.smartsidebar" />
+        <package android:name="com.finshell.wallet" />
+        <package android:name="com.oplus.aimemory" />
+        <package android:name="com.oplus.camera" />
+        <package android:name="com.android.camera" />
+        <package android:name="com.tencent.mm" />
+        <package android:name="com.eg.android.AlipayGphone" />
+    </queries>
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+    <application android:label="超级卡包" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:allowBackup="false">
+        <service android:name=".MemoryTransferService" android:exported="true"
+            android:permission="android.permission.DUMP" />
+        <provider android:name=".MemoryTransferProvider"
+            android:authorities="dev.local.supercardhost.memory-transfer"
+            android:exported="true"
+            android:readPermission="dev.local.supercardhost.permission.READ_MEMORY_TRANSFER"
+            android:writePermission="android.permission.DUMP"
+            android:grantUriPermissions="true" />
+        <activity android:name=".GestureAreaActivity" android:exported="true" />
+        <activity android:name=".MemoryPhotoActivity" android:exported="true"
+            android:permission="android.permission.DUMP"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <activity android:name=".HostActivity" android:exported="true">
+            <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+        </activity>
+    </application>
+</manifest>

@@ -1,0 +1,6 @@
+id=supercard_display_backend
+name=SuperCard secure display backend
+version=0.1
+versionCode=1
+author=local
+description=Root display backend for vivo SuperCard hosted in ColorOS SystemUI

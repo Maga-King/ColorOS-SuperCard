@@ -1,0 +1,41 @@
+{
+  "source": "Read-only copies from Ubuntu-26.04 /usr/share/apktool and /usr/share/java, 2026-10-09",
+  "jars": [
+    {
+      "name": "dexlib2.jar",
+      "package": "libsmali-java",
+      "version": "2.5.2.git2771eae-4",
+      "bytes": 1116212,
+      "sha256": "0c09465b2264180f2d52d21c0b5aab6c407a4d8fa8fd8dbade68cf50c39b4bd5",
+      "licenseFile": "copyright-smali.txt",
+      "licenseUrl": "https://github.com/JesusFreke/smali/blob/v2.5.2/NOTICE"
+    },
+    {
+      "name": "guava.jar",
+      "package": "libguava-java",
+      "version": "32.0.1-1build1",
+      "bytes": 3010670,
+      "sha256": "8dfa058dbce4082469e4147237cef974f3063db4aacbefe667be47770f5f6ddd",
+      "licenseFile": "copyright-guava.txt",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0"
+    },
+    {
+      "name": "smali-util.jar",
+      "package": "libsmali-java",
+      "version": "2.5.2.git2771eae-4",
+      "bytes": 27447,
+      "sha256": "ee8017ae11b7174a5eab4e3d7a773dd2cb660d3bced7c78a51430cdd32822e0e",
+      "licenseFile": "copyright-smali.txt",
+      "licenseUrl": "https://github.com/JesusFreke/smali/blob/v2.5.2/NOTICE"
+    },
+    {
+      "name": "jsr305.jar",
+      "package": "libjsr305-java",
+      "version": "0.1~+svn49-12",
+      "bytes": 18503,
+      "sha256": "b2f7f6c23d5cf73d102292fe62deb954b24fe362ee79dffc47ff6d939db0f5ce",
+      "licenseFile": "copyright-jsr305.txt",
+      "licenseUrl": "https://sources.debian.org/src/libjsr305-java/0.1~%2Bsvn49-12/debian/copyright/"
+    }
+  ]
+}

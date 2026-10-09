@@ -1,0 +1,510 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    android:persistent="true"
+    android:versionCode="900172"
+    android:versionName="9.0.1.72"
+    android:compileSdkVersion="36"
+    android:compileSdkVersionCodename="Baklava"
+    package="com.vivo.card"
+    platformBuildVersionCode="36"
+    platformBuildVersionName="Baklava">
+    <uses-sdk
+        android:minSdkVersion="29"
+        android:targetSdkVersion="36"/>
+    <permission
+        android:name="com.vivo.sidedockplugin.permission.CONVENIENT_TOOL"
+        android:protectionLevel="signature"/>
+    <permission
+        android:name="com.vivo.sidedockplugin.permission.SIDEDOCK_CLOSE"
+        android:protectionLevel="signature"/>
+    <uses-permission android:name="com.vivo.smartmultiwindow.permission.READ_APPCONFIGS"/>
+    <uses-permission android:name="com.vivo.aiengine.permission.ACCESS_EASYIPC_SERVICE"/>
+    <uses-permission android:name="com.vivo.agent.permission.EXT_SCREEN_READ"/>
+    <uses-permission android:name="com.vivo.aiengine.permission.BIND_INTENTION_PLUS_SERVICE"/>
+    <uses-permission android:name="com.vivo.translator.permission.GLOBAL_TRANSLATE"/>
+    <uses-permission android:name="com.vivo.permission.ACCESS_VIVO_CAST_DISPLAY"/>
+    <uses-permission android:name="com.vivo.safecenter.permissions.START_SAFE_CENTER_ACTIVITY"/>
+    <uses-permission android:name="com.vivo.smartshot.permission.HIDDEN_CAPTURE_SCREEN"/>
+    <uses-permission android:name="android.permission.WRITE_SETTINGS"/>
+    <uses-permission android:name="android.permission.READ_SETTINGS"/>
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"/>
+    <uses-permission android:name="com.vivo.permission.WRITE_V_SYSTEM_SETTINGS"/>
+    <uses-permission android:name="com.vivo.ai.copilot.permission.COPILOT_SETTINGS"/>
+    <uses-permission android:name="com.vivo.ai.copilot.permission.BIND_FLOATSERVICE"/>
+    <uses-permission android:name="com.vivo.aiengine.permission.BOOK_KEEP"/>
+    <uses-permission android:name="com.vivo.settings.pemission.SOFTWARELOCK"/>
+    <permission
+        android:name="com.vivo.card.permission.START_FLIP_CARD_ACTIVITY"
+        android:protectionLevel="signature"/>
+    <permission
+        android:name="com.vivo.card.permission.ACCESS_CARD_CONTENT_PROVIDER"
+        android:protectionLevel="signature"/>
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+    <uses-permission android:name="com.bbk.launcher2.permission.READ_SETTINGS"/>
+    <uses-permission android:name="com.bbk.launcher2.permission.WRITE_SETTINGS"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.INTERNAL_SYSTEM_WINDOW"/>
+    <uses-permission android:name="android.permission.CHANGE_CONFIGURATION"/>
+    <uses-permission android:name="android.permission.MONITOR_INPUT"/>
+    <uses-permission android:name="com.vivo.favorite.READ_FAVORITE"/>
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
+    <uses-permission android:name="com.vivo.systemui.permission.STATUS_BAR_EXPAND_OR_CLOSE"/>
+    <uses-permission android:name="android.permission.USE_FINGERPRINT"/>
+    <uses-permission android:name="vivo.wallet.permission.CALL_PAY_CODE_SERVICE"/>
+    <uses-permission android:name="bbk.theme.permission.ACCESS_NOVOLAND"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.smartmultiwindow.SMARTMULTIWINDOW_OP"/>
+    <uses-permission android:name="android.permission.REAL_GET_TASKS"/>
+    <uses-permission android:name="android.permission.GET_TASKS"/>
+    <uses-permission android:name="android.intent.action.CARD_COLLECTED"/>
+    <uses-permission android:name="com.vivo.permission.SEND_SUPER_CARD_FULL_SCREEN"/>
+    <uses-permission android:name="com.vivo.softwarelock.permission.SECRET_CLOSE_BROADCAST"/>
+    <uses-permission android:name="com.vivo.systemui.permission.STATUS_BAR_WINDOW_STATE"/>
+    <uses-permission
+        android:name="com.vivo.globalgesture.GLOBAL_GESTURE_SERVICE"
+        android:protectionLevel="signature"/>
+    <uses-permission android:name="android.permission.CAPTURE_SECURE_VIDEO_OUTPUT"/>
+    <uses-permission android:name="android.permission.ACTIVITY_EMBEDDING"/>
+    <uses-permission android:name="android.permission.ADD_TRUSTED_DISPLAY"/>
+    <uses-permission android:name="com.vivo.fliplauncher.permission.FLIP_TO_CONTINUE"/>
+    <uses-permission android:name="com.vivo.card.permission.START_FLIP_CARD_ACTIVITY"/>
+    <uses-permission android:name="android.permission.SET_ACTIVITY_WATCHER"/>
+    <uses-permission android:name="com.vivo.fliplauncher.permission.FLIP_CARD"/>
+    <uses-permission android:name="android.permission.INJECT_EVENTS"/>
+    <uses-permission android:name="com.vivo.quickpay.permission.START_QUICK_PAY"/>
+    <uses-permission android:name="com.vivo.permission.CONTENTCATCHER_PERMISSION"/>
+    <uses-permission android:name="com.vivo.permission.ACCESSIBILITY_ENHANCE_PERMISSION"/>
+    <uses-permission android:name="com.vivo.keyguard.permission.widget.config"/>
+    <uses-permission android:name="android.permission.USE_BIOMETRIC_INTERNAL"/>
+    <permission
+        android:name="com.vivo.card.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+        android:protectionLevel="signature"/>
+    <uses-permission android:name="com.vivo.card.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"/>
+    <application
+        android:label="@string/card"
+        android:icon="@drawable/supercard_icon"
+        android:name="com.vivo.card.SuperCardApplication"
+        android:allowBackup="false"
+        android:hardwareAccelerated="true"
+        android:supportsRtl="true"
+        android:extractNativeLibs="false"
+        android:defaultToDeviceProtectedStorage="true"
+        android:appComponentFactory="androidx.core.app.CoreComponentFactory">
+        <property
+            android:name="android.app.appfunctions.app_metadata"
+            android:resource="@xml/app_metadata"/>
+        <meta-data
+            android:name="originui.version.globaltheme"
+            android:value="true"/>
+        <meta-data
+            android:name="android.vivo_globaltheme_supportmode"
+            android:value="1"/>
+        <meta-data
+            android:name="originui.version.limit"
+            android:value="-1"/>
+        <provider
+            android:name="com.vivo.card.search.CardSearchIndexablesProvider"
+            android:permission="android.permission.READ_SEARCH_INDEXABLES"
+            android:exported="true"
+            android:multiprocess="false"
+            android:authorities="com.vivo.card"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="com.android.settings.search.data_build_mode"
+                android:value="1"/>
+            <intent-filter>
+                <action android:name="android.content.action.SEARCH_INDEXABLES_PROVIDER"/>
+            </intent-filter>
+        </provider>
+        <meta-data
+            android:name="is_support_privacy_app_protection"
+            android:value="1"/>
+        <activity
+            android:theme="@style/QuickAppTheme"
+            android:label="@string/vivo_smart_sidebar_settings_label"
+            android:name="com.vivo.sidedockplugin.settings.ui.QuickLaunchAppSettingActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:launchMode="standard"
+            android:screenOrientation="portrait"
+            android:configChanges="smallestScreenSize|screenSize|screenLayout|orientation|keyboardHidden"
+            android:resizeableActivity="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="vivo.intent.category.settings.ACCESSIBILITY_SHORTCUT"/>
+            </intent-filter>
+            <intent-filter>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <action android:name="com.vivo.sidedockplugin.ui.SearchResult"/>
+            </intent-filter>
+            <meta-data
+                android:name="accessibility.settings.order"
+                android:value="-100"/>
+            <meta-data
+                android:name="accessibility.settings.title"
+                android:resource="@string/vivo_smart_sidebar_settings_label"/>
+            <meta-data
+                android:name="com.android.settings.summary_uri"
+                android:value="content://com.vivo.sidedockplugin.settings/getDynamicSummary"/>
+        </activity>
+        <activity
+            android:theme="@style/QuickAppTheme"
+            android:name="com.vivo.sidedockplugin.settings.ui.QuickLaunchAISceneActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:screenOrientation="portrait"
+            android:configChanges="smallestScreenSize|screenSize|screenLayout|orientation|keyboardHidden"
+            android:resizeableActivity="true">
+            <intent-filter>
+                <action android:name="com.vivo.card.intent.action.START_QUICKLAUNCHAISCENEACTIVITY"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </activity>
+        <provider
+            android:name="com.vivo.sidedockplugin.settings.SettingsTileProvider"
+            android:exported="true"
+            android:authorities="com.vivo.sidedockplugin.settings"/>
+        <provider
+            android:name="com.vivo.card.provider.CardContentProvider"
+            android:readPermission="com.vivo.card.permission.ACCESS_CARD_CONTENT_PROVIDER"
+            android:writePermission="com.vivo.card.permission.ACCESS_CARD_CONTENT_PROVIDER"
+            android:exported="true"
+            android:authorities="cn.vivo.card.provider.CardDataProvider;com.vivo.card"
+            android:grantUriPermissions="true"
+            android:directBootAware="true"/>
+        <activity
+            android:name="com.vivo.card.ui.BaseActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:resizeableActivity="false"/>
+        <meta-data
+            android:name="com.vivo.vcode.moduleId"
+            android:value="@string/module_id"/>
+        <meta-data
+            android:name="com.vivo.vcode.netConnect"
+            android:value="@string/net_connect"/>
+        <meta-data
+            android:name="versionCodeForTips"
+            android:value="1"/>
+        <meta-data
+            android:name="vivo.uninstall.compatibility.not_adbUninstall"
+            android:value="1"/>
+        <meta-data
+            android:name="support_vivo_foldable_rotate"
+            android:value="true"/>
+        <meta-data
+            android:name="vivo.cold_start_capture_enable"
+            android:value="true"/>
+        <activity
+            android:theme="@style/comm_StatusbarTransparent"
+            android:label="@string/card"
+            android:name="com.vivo.card.setting.CardEditActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:launchMode="standard"
+            android:screenOrientation="portrait"
+            android:configChanges="smallestScreenSize|screenSize|screenLayout|orientation|keyboardHidden"
+            android:resizeableActivity="true">
+            <intent-filter>
+                <action android:name="com.vivo.card.action.OPEN_CARD_EDIT"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </activity>
+        <activity
+            android:theme="@style/comm_StatusbarTransparent"
+            android:label="@string/card"
+            android:name="com.vivo.card.setting.CardSettingActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop"
+            android:screenOrientation="portrait"
+            android:configChanges="smallestScreenSize|screenSize|screenLayout|orientation|keyboardHidden"
+            android:resizeableActivity="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="vivo.intent.category.settings.ACCESSIBILITY_SHORTCUT"/>
+            </intent-filter>
+            <intent-filter>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <action android:name="com.vivo.card.ui.SearchResult"/>
+            </intent-filter>
+            <intent-filter>
+                <category android:name="vivo.intent.category.settings.MAIN"/>
+                <category android:name="vivo.intent.category.settings.ACCESSIBILITY_SHORTCUT"/>
+                <action android:name="android.intent.action.MAIN"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="com.vivo.card.action.OPEN_CARD_SETTINGS"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+            <meta-data
+                android:name="com.android.settings.category"
+                android:value="com.android.settings.category.state"/>
+            <meta-data
+                android:name="accessibility.settings.order"
+                android:value="20"/>
+            <meta-data
+                android:name="accessibility.settings.title"
+                android:resource="@string/card"/>
+            <meta-data
+                android:name="search_xml"
+                android:resource="@xml/card_search_nodes"/>
+        </activity>
+        <activity
+            android:theme="@style/NoDisplayContentTheme"
+            android:name="com.vivo.card.appwidget.KeyguardAppWidgetRouter"
+            android:exported="false"
+            android:process=":widget"
+            android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="com.vivo.card.keyguard.widget.router"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </activity>
+        <receiver
+            android:label="@string/vivo_keyguard_widget_wechat_pay_code"
+            android:icon="@drawable/vivo_keyguard_widget_wechat_sub_icon"
+            android:name="com.vivo.card.appwidget.KeyguardWechatPayCodeWidget"
+            android:exported="false"
+            android:process=":widget">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data
+                android:name="vivo.appwidget.keyguard.host.app"
+                android:value="com.tencent.mm"/>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/keyguard_wechat_pay_code_widget_info"/>
+            <meta-data
+                android:name="vivo.appwidget.keyguard.check.config"
+                android:value="true"/>
+            <meta-data
+                android:name="vivo.appwidget.subcategory"
+                android:value="keyguard"/>
+        </receiver>
+        <receiver
+            android:label="@string/vivo_keyguard_widget_wechat_scan"
+            android:icon="@drawable/vivo_keyguard_widget_wechat_sub_icon"
+            android:name="com.vivo.card.appwidget.KeyguardWechatScanWidget"
+            android:exported="false"
+            android:process=":widget">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data
+                android:name="vivo.appwidget.keyguard.host.app"
+                android:value="com.tencent.mm"/>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/keyguard_wechat_scan_widget_info"/>
+            <meta-data
+                android:name="vivo.appwidget.keyguard.check.config"
+                android:value="true"/>
+            <meta-data
+                android:name="vivo.appwidget.subcategory"
+                android:value="keyguard"/>
+        </receiver>
+        <receiver
+            android:label="@string/vivo_keyguard_widget_wechat_ride_code"
+            android:icon="@drawable/vivo_keyguard_widget_wechat_sub_icon"
+            android:name="com.vivo.card.appwidget.KeyguardWechatTransitQRCodeWidget"
+            android:exported="false"
+            android:process=":widget">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data
+                android:name="vivo.appwidget.keyguard.host.app"
+                android:value="com.tencent.mm"/>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/keyguard_wechat_transit_qr_code_widget_info"/>
+            <meta-data
+                android:name="vivo.appwidget.keyguard.check.config"
+                android:value="true"/>
+            <meta-data
+                android:name="vivo.appwidget.subcategory"
+                android:value="keyguard"/>
+        </receiver>
+        <receiver
+            android:label="@string/vivo_keyguard_widget_alipay_scan"
+            android:icon="@drawable/vivo_keyguard_widget_alipay_sub_icon"
+            android:name="com.vivo.card.appwidget.KeyguardAliPayScanWidget"
+            android:exported="false"
+            android:process=":widget">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data
+                android:name="vivo.appwidget.keyguard.host.app"
+                android:value="com.eg.android.AlipayGphone"/>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/keyguard_alipay_scan_widget_info"/>
+            <meta-data
+                android:name="vivo.appwidget.keyguard.check.config"
+                android:value="true"/>
+            <meta-data
+                android:name="vivo.appwidget.subcategory"
+                android:value="keyguard"/>
+        </receiver>
+        <receiver
+            android:label="@string/vivo_keyguard_widget_alipay_pay_code"
+            android:icon="@drawable/vivo_keyguard_widget_alipay_sub_icon"
+            android:name="com.vivo.card.appwidget.KeyguardAliPayCodeWidget"
+            android:exported="false"
+            android:process=":widget">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data
+                android:name="vivo.appwidget.keyguard.host.app"
+                android:value="com.eg.android.AlipayGphone"/>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/keyguard_alipay_code_widget_info"/>
+            <meta-data
+                android:name="vivo.appwidget.keyguard.check.config"
+                android:value="true"/>
+            <meta-data
+                android:name="vivo.appwidget.subcategory"
+                android:value="keyguard"/>
+        </receiver>
+        <receiver
+            android:label="@string/vivo_keyguard_widget_alipay_ride_code"
+            android:icon="@drawable/vivo_keyguard_widget_alipay_sub_icon"
+            android:name="com.vivo.card.appwidget.KeyguardAliPayTransitQRCodeWidget"
+            android:exported="false"
+            android:process=":widget">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data
+                android:name="vivo.appwidget.keyguard.host.app"
+                android:value="com.eg.android.AlipayGphone"/>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/keyguard_alipay_transit_qr_code_widget_info"/>
+            <meta-data
+                android:name="vivo.appwidget.keyguard.check.config"
+                android:value="true"/>
+            <meta-data
+                android:name="vivo.appwidget.subcategory"
+                android:value="keyguard"/>
+        </receiver>
+        <provider
+            android:name="com.vivo.card.appwidget.KeyguardAppWidgetContentProvider"
+            android:readPermission="com.vivo.keyguard.permission.widget.config"
+            android:exported="true"
+            android:authorities="com.vivo.card.widget.config"/>
+        <service
+            android:name="androidx.appfunctions.service.PlatformAppFunctionService"
+            android:permission="android.permission.BIND_APP_FUNCTION_SERVICE"
+            android:enabled="@bool/enablePlatformAppFunctionService"
+            android:exported="true">
+            <property
+                android:name="android.app.appfunctions"
+                android:value="app_functions.xml"/>
+            <property
+                android:name="android.app.appfunctions.schema"
+                android:value="app_functions_schema.xsd"/>
+            <property
+                android:name="android.app.appfunctions.v2"
+                android:value="app_functions_v2.xml"/>
+            <intent-filter>
+                <action android:name="android.app.appfunctions.AppFunctionService"/>
+            </intent-filter>
+        </service>
+        <service
+            android:name="androidx.appfunctions.service.ExtensionAppFunctionService"
+            android:permission="android.permission.BIND_APP_FUNCTION_SERVICE"
+            android:enabled="@bool/enableExtensionAppFunctionService"
+            android:exported="true">
+            <property
+                android:name="android.app.appfunctions"
+                android:value="app_functions.xml"/>
+            <property
+                android:name="android.app.appfunctions.schema"
+                android:value="app_functions_schema.xsd"/>
+            <property
+                android:name="android.app.appfunctions.v2"
+                android:value="app_functions_v2.xml"/>
+            <intent-filter>
+                <action android:name="android.app.appfunctions.AppFunctionService"/>
+            </intent-filter>
+        </service>
+        <uses-library
+            android:name="com.android.extensions.appfunctions"
+            android:required="false"/>
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:exported="false"
+            android:authorities="com.vivo.card.androidx-startup">
+            <meta-data
+                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+                android:value="androidx.startup"/>
+            <meta-data
+                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+                android:value="androidx.startup"/>
+            <meta-data
+                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+                android:value="androidx.startup"/>
+        </provider>
+        <receiver
+            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+            android:permission="android.permission.DUMP"
+            android:enabled="true"
+            android:exported="true"
+            android:directBootAware="false">
+            <intent-filter>
+                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="androidx.profileinstaller.action.SKIP_FILE"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION"/>
+            </intent-filter>
+        </receiver>
+        <meta-data
+            android:name="vboost_sdk_version"
+            android:value="1005"/>
+        <meta-data
+            android:name="originui_support_aar_type_vtipspopupwindow"
+            android:value="1"/>
+        <meta-data
+            android:name="originui_support_aar_type_vdialog"
+            android:value="1"/>
+        <meta-data
+            android:name="originui_support_aar_type_button"
+            android:value="1"/>
+        <meta-data
+            android:name="originui_support_aar_type_progressbar"
+            android:value="1"/>
+        <meta-data
+            android:name="originui_support_aar_type_vlistitem"
+            android:value="1"/>
+        <meta-data
+            android:name="originui_support_aar_type_vclickdrawable"
+            android:value="1"/>
+        <meta-data
+            android:name="originui_support_aar_type_vtoolbar"
+            android:value="1"/>
+        <meta-data
+            android:name="originui_support_aar_type_vcoordinatorbase"
+            android:value="1"/>
+        <meta-data
+            android:name="originui_support_aar_type_vscrollbar"
+            android:value="1"/>
+        <meta-data
+            android:name="originui_support_aar_type_vdividerline"
+            android:value="1"/>
+        <meta-data
+            android:name="originui_support_aar_type_vspinner"
+            android:value="1"/>
+    </application>
+</manifest>

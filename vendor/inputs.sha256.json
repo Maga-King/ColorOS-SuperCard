@@ -1,0 +1,8 @@
+{
+  "app/src/main/assets/coupon-plugin.apk": "fe6395bdb3a3a50fb83bcf45233c33eb56d017816cd5a6ce8a563335ce73ffff",
+  "app/src/main/assets/memory-code.zip": "1b58d2cf819948678ce48f2469c25d98e9974ac6036473aaba4df1dc11fa9517",
+  "app/src/main/assets/memory-plugin.apk": "57c6afd25b6337944da2b087e43d999190377f63c1316ffc2621aeda77ab2852",
+  "app/src/main/assets/supercard-code.zip": "6dd0574145bc973b0955133d36220689aa298c2c25b363e5290e2087da893cdd",
+  "app/src/main/assets/supercard-resources.apk": "b791801992e82a8a725bb2af33bdbe353e603685b2759b1fd312abe7a992df87",
+  "vendor/supercard/AndroidManifest.xml": "bffc00a98b590553811b7884e3ac91b9de5f0b494bd28ed941dfd753513ff944"
+}
