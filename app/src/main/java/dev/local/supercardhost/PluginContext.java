@@ -27,8 +27,12 @@ final class PluginContext extends ContextWrapper {
     @Override public Context getApplicationContext() { return host.getApplicationContext(); }
     @Override public void startActivity(Intent intent) { startActivity(intent, null); }
     @Override public void startActivity(Intent intent, Bundle options) {
+        boolean rideLauncher = Intent.ACTION_MAIN.equals(intent.getAction())
+                && intent.getComponent() != null
+                && "com.tencent.mm".equals(intent.getComponent().getPackageName())
+                && PayRuntimeBridge.getWeChatRideDisplayId() > 0;
         if ("com.tencent.mm.ui.ShortCutDispatchAction".equals(intent.getAction())
-                || "com.tencent.mm.action.BIZSHORTCUT".equals(intent.getAction())) {
+                || "com.tencent.mm.action.BIZSHORTCUT".equals(intent.getAction()) || rideLauncher) {
             int display = PayRuntimeBridge.getActiveDisplayId();
             if (display > 0 && options == null) {
                 ActivityOptions routed = ActivityOptions.makeBasic(); routed.setLaunchDisplayId(display);

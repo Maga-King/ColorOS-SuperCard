@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
+import android.net.LocalServerSocket;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.Handler;
@@ -31,11 +32,13 @@ import org.lsposed.hiddenapibypass.HiddenApiBypass;
  * Only SystemUI may connect. The endpoint creates one specifically named display;
  * it does not expose arbitrary system service calls or alter application security
  * flags. The client owns the display callback token after creation, while this
- * process retains the real VirtualDisplay and releases it on client death.
+ * process retains the real VirtualDisplay and releases it on client death, then
+ * announces the endpoint again to the restarted SystemUI.
  */
 public final class RootDisplayDaemon extends Binder {
     private static final String TAG = "SuperCardRootDisplay";
     private static final String SYSTEM_UI = "com.android.systemui";
+    private static final String MODULE_PACKAGE = "dev.local.supercardhost";
     private static final String ACTION = "dev.local.supercardhost.ROOT_DISPLAY_SERVICE";
     private static final String DESCRIPTOR = "dev.local.supercardhost.RootDisplay.v1";
     private static final String DISPLAY_NAME = "SuperCard_Virtual";
@@ -44,6 +47,7 @@ public final class RootDisplayDaemon extends Binder {
     private static final int RELEASE = IBinder.FIRST_CALL_TRANSACTION + 2;
     private static final int ORIGINAL_DISPLAY_FLAGS = 19917;
     private static final long ANNOUNCE_INTERVAL_MS = 2000;
+    private static LocalServerSocket singleton;
 
     private final Context context;
     private final DisplayManager displayManager;
@@ -57,6 +61,7 @@ public final class RootDisplayDaemon extends Binder {
     private final Method sendBroadcastWithOptions;
     private final IBinder.DeathRecipient clientDeath = this::onClientDeath;
     private final Runnable announceAgain = this::announce;
+    private final String loadedApk = System.getProperty("java.class.path", "");
 
     // Access to these fields is serialized by lock, including Binder thread calls.
     private IBinder clientLifetime;
@@ -103,9 +108,16 @@ public final class RootDisplayDaemon extends Binder {
             return;
         }
         try {
+            // The kernel releases this abstract socket on process death. Competing
+            // boot/on-demand starts cannot leave two endpoints holding displays.
+            try { singleton = new LocalServerSocket("dev.local.supercardhost.root-display.v1"); }
+            catch (java.io.IOException alreadyRunning) {
+                Log.i(TAG, "Root display endpoint is already running");
+                return;
+            }
             HiddenApiBypass.addHiddenApiExemptions("Landroid/");
             if (Looper.getMainLooper() == null) Looper.prepareMainLooper();
-            String nonce = args.length == 0 ? newNonce() : args[0];
+            String nonce = (args.length == 0 ? newNonce() : args[0]).toLowerCase(java.util.Locale.ROOT);
             if (!nonce.matches("[0-9a-fA-F]{32}")) {
                 throw new IllegalArgumentException("Nonce must contain 32 hexadecimal characters");
             }
@@ -120,6 +132,7 @@ public final class RootDisplayDaemon extends Binder {
             RootDisplayDaemon daemon = new RootDisplayDaemon(context, nonce);
             Log.i(TAG, "Root secure display endpoint ready for SystemUI UID " + daemon.systemUiUid);
             daemon.main.post(daemon.announceAgain);
+            daemon.main.postDelayed(daemon::checkInstalledApk, 10_000);
             Looper.loop();
         } catch (Throwable failure) {
             Log.e(TAG, "Root secure display endpoint failed to start", unwrap(failure));
@@ -140,22 +153,30 @@ public final class RootDisplayDaemon extends Binder {
     }
 
     private void announce() {
+        boolean connected;
         synchronized (lock) {
-            if (closed || clientLifetime != null) return;
+            if (closed) return;
+            connected = clientLifetime != null;
         }
         try {
             Bundle extras = new Bundle();
             extras.putBinder("service", this);
             extras.putString("nonce", nonce);
-            Intent announcement = new Intent(ACTION).setPackage(SYSTEM_UI).putExtras(extras);
-            sendBroadcastWithOptions.invoke(context, announcement,
-                    "android.permission.DUMP", announcementOptions);
+            if (!connected) {
+                Intent announcement = new Intent(ACTION).setPackage(SYSTEM_UI).putExtras(extras);
+                sendBroadcastWithOptions.invoke(context, announcement,
+                        "android.permission.DUMP", announcementOptions);
+            }
+            // The app observes liveness only; the Binder still authorizes SystemUI
+            // exclusively. Its receiver verifies the shared root sender identity.
+            sendBroadcastWithOptions.invoke(context, new Intent(ACTION).setPackage(MODULE_PACKAGE).putExtras(extras),
+                    null, announcementOptions);
         } catch (Throwable failure) {
             Log.e(TAG, "Could not announce secure display endpoint", unwrap(failure));
         }
         synchronized (lock) {
-            if (!closed && clientLifetime == null) {
-                main.postDelayed(announceAgain, ANNOUNCE_INTERVAL_MS);
+            if (!closed) {
+                main.postDelayed(announceAgain, connected ? 30_000 : ANNOUNCE_INTERVAL_MS);
             }
         }
     }
@@ -226,6 +247,7 @@ public final class RootDisplayDaemon extends Binder {
                 lifetime.linkToDeath(clientDeath, 0);
                 clientLifetime = lifetime;
                 main.removeCallbacks(announceAgain);
+                main.postDelayed(announceAgain, 30_000);
                 Log.i(TAG, "SystemUI secure display client connected");
             }
         }
@@ -376,7 +398,6 @@ public final class RootDisplayDaemon extends Binder {
     private void onClientDeath() {
         synchronized (lock) {
             if (closed) return;
-            closed = true;
             clientLifetime = null;
             main.removeCallbacks(announceAgain);
             long identity = Binder.clearCallingIdentity();
@@ -386,10 +407,40 @@ public final class RootDisplayDaemon extends Binder {
                 Binder.restoreCallingIdentity(identity);
             }
         }
-        Log.i(TAG, "SystemUI client died; secure displays released");
-        // The DMS callback Binder is owned by this process, so process death also
-        // removes a display if explicit cleanup encountered a service failure.
-        main.post(() -> System.exit(0));
+        Log.i(TAG, "SystemUI client died; secure displays released, waiting for reconnect");
+        main.post(announceAgain);
+    }
+
+    private void checkInstalledApk() {
+        try {
+            String installed = context.getPackageManager().getApplicationInfo(MODULE_PACKAGE, 0).sourceDir;
+            if (loadedApk.startsWith("/data/app/") && !loadedApk.equals(installed)) {
+                Log.i(TAG, "APK replaced; restarting endpoint from the new installation");
+                closeForReplacement();
+                // Explicit privileged request wakes the updated app even when its
+                // previous process was killed during replacement.
+                context.sendBroadcast(new Intent(AutoVirtualDisplayManager.START)
+                        .setClassName(MODULE_PACKAGE, MODULE_PACKAGE + ".RootDisplayStartReceiver"));
+                System.exit(0);
+                return;
+            }
+        } catch (android.content.pm.PackageManager.NameNotFoundException removed) {
+            closeForReplacement();
+            System.exit(0);
+            return;
+        } catch (Exception error) { Log.w(TAG, "Cannot check installed endpoint APK", error); }
+        main.postDelayed(this::checkInstalledApk, 10_000);
+    }
+
+    private void closeForReplacement() {
+        synchronized (lock) {
+            closed = true;
+            main.removeCallbacks(announceAgain);
+            if (clientLifetime != null) clientLifetime.unlinkToDeath(clientDeath, 0);
+            clientLifetime = null;
+            releaseDisplayLocked();
+        }
+        try { singleton.close(); } catch (java.io.IOException ignored) { }
     }
 
     private void releaseDisplayLocked() {

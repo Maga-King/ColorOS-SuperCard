@@ -36,6 +36,7 @@ public final class LensRuntimeBridge {
         if (INSTALLED.contains(loader)) return;
         try {
             Class<?> initializer = loader.loadClass("com.vivo.card.data.CardDataInitializer");
+            PayFunctionFilter.install(module, loader);
             module.hook(method(initializer, "getCameraFunType", int.class)).intercept(chain ->
                     ((Integer) chain.getArg(0)) == 17 ? "master" : chain.proceed());
             module.hook(method(initializer, "getOrLoadDefaultJson")).intercept(chain -> {
@@ -182,9 +183,10 @@ public final class LensRuntimeBridge {
 
     /** A one-time migration enables this requested card without resetting other card choices. */
     public static void prepareConfiguration(Context host) {
+        PayFunctionFilter.migrate(host);
         try {
             int revision = Settings.Secure.getInt(host.getContentResolver(), REVISION, 0);
-            if (revision >= 3) return;
+            if (revision >= 5) return;
             String previous = Settings.Secure.getString(host.getContentResolver(), "card_setting_data");
             if (previous == null || previous.isEmpty()) return; // Original initializer owns fresh setup.
             JSONObject config = new JSONObject(previous);
@@ -209,7 +211,7 @@ public final class LensRuntimeBridge {
             if (!Settings.Secure.putString(host.getContentResolver(), "card_setting_data", config.toString())
                     || !Settings.Secure.putString(host.getContentResolver(), "key_need_format_camera_function", "true"))
                 throw new IllegalStateException("Cannot migrate Lens configuration");
-            if (!Settings.Secure.putInt(host.getContentResolver(), REVISION, 3))
+            if (!Settings.Secure.putInt(host.getContentResolver(), REVISION, 5))
                 throw new IllegalStateException("Cannot record Lens migration");
             Log.i(TAG, "Lens adapter migration complete; original function formatter requested");
         } catch (Throwable error) { Log.e(TAG, "Cannot prepare original Lens configuration", error); }

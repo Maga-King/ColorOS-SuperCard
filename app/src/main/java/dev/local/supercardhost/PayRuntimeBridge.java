@@ -30,6 +30,7 @@ public final class PayRuntimeBridge {
 
     private static volatile Object activeManager;
     private static volatile long launchGeneration;
+    private static volatile String activeFunction;
     private static volatile Method isActiveMethod;
     private static volatile Method displayIdMethod;
     private static Method taskIdMethod;
@@ -73,6 +74,7 @@ public final class PayRuntimeBridge {
             activityManager = host.getSystemService(ActivityManager.class);
             if (activityManager == null) throw new IllegalStateException("ActivityManager unavailable");
             cardPlugin = plugin;
+            PayDisplayReadiness.install(module, host, pluginLoader);
 
             Method launch = findMethod(managerType, "launchPayment",
                     String.class, int[].class, Intent.class);
@@ -82,6 +84,7 @@ public final class PayRuntimeBridge {
                     // Store the manager before the original launch flow starts its activity.
                     try {
                         activeManager = chain.getThisObject();
+                        activeFunction = (String) chain.getArg(0);
                         launchGeneration++;
                     } catch (Throwable error) {
                         failure("capture payment manager", error);
@@ -102,6 +105,10 @@ public final class PayRuntimeBridge {
     }
 
     /** Returns only the original manager's current, active virtual display. */
+    public static int getWeChatRideDisplayId() {
+        return "wx_ride".equals(activeFunction) ? getActiveDisplayId() : -1;
+    }
+
     public static int getActiveDisplayId() {
         Object manager = activeManager;
         if (manager == null) return -1;

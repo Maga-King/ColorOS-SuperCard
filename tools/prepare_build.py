@@ -1,5 +1,6 @@
 """校验仓库构建输入，下载并校验固定版本的 DEX 合包工具。"""
 from pathlib import Path
+import argparse
 import hashlib
 import io
 import json
@@ -15,12 +16,17 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--offline', action='store_true', help='Require the verified local tool cache; never download')
+    args = parser.parse_args()
     lock = json.loads((ROOT / 'vendor/inputs.sha256.json').read_text(encoding='utf-8'))
     for relative, expected in lock.items():
         if digest((ROOT / relative).read_bytes()) != expected:
             raise SystemExit('构建输入校验失败：' + relative)
     target = ROOT / 'tools/cache/jadx-gui-1.5.5-all.jar'
     if not target.is_file() or digest(target.read_bytes()) != JAR_SHA256:
+        if args.offline:
+            raise SystemExit('离线构建缺少已校验的 jadx 缓存：' + str(target))
         request = urllib.request.Request(URL, headers={'User-Agent': 'ColorOS-SuperCard-build'})
         with urllib.request.urlopen(request, timeout=120) as response:
             archive = response.read()

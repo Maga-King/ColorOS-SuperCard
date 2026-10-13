@@ -60,7 +60,12 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: supercard-unified
-          path: dist/
+          path: |
+            dist/SuperCard-*-unified.apk
+            dist/SHA256SUMS.txt
+            dist/resource-verification.json
+            dist/apk-fingerprint.json
+            dist/comparison.json
           if-no-files-found: error
           retention-days: 14
       - name: 保存失败的依赖校验与产物比较报告

@@ -23,6 +23,7 @@ final class OriginalAppCompat {
         Context system = (Context) systemContext.invoke(current.invoke(null));
         Context module = system.createPackageContext("dev.local.supercardhost", Context.CONTEXT_IGNORE_SECURITY);
         int newCount = 0;
+
         // The unified APK already contains the patched card classes and the host
         // shims. Re-prepending the archive would shadow those verified shims.
         if (!"dev.local.supercardhost".equals(info.packageName)) {
@@ -55,6 +56,8 @@ final class OriginalAppCompat {
         LensRuntimeBridge.install(xposed, target);
         CardPreviewCompat.install(xposed, target);
         SettingsLinkCompat.install(xposed, target);
+        CardSettingsFilter.install(xposed, target);
+        SettingsAppearanceCompat.install(xposed, target);
         var onCreate = target.loadClass("com.vivo.card.preference.BasePreferenceActivity")
                 .getDeclaredMethod("onCreate", Bundle.class);
         onCreate.setAccessible(true);

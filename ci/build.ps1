@@ -1,15 +1,26 @@
-﻿param([switch]$SkipReference)
+﻿param([switch]$SkipReference, [switch]$Offline)
 $ErrorActionPreference = 'Stop'
 $env:PYTHONUTF8 = '1'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 Push-Location -LiteralPath $projectRoot
 try {
-    python tools/prepare_build.py
+    $prepareArgs = @('tools/prepare_build.py')
+    if ($Offline) { $prepareArgs += '--offline' }
+    python @prepareArgs
     if ($LASTEXITCODE -ne 0) { throw '构建输入校验失败' }
     python tools/rebuild_assets.py
     if ($LASTEXITCODE -ne 0) { throw '补丁 DEX 再生与现有资产不一致' }
-    & ./gradlew.bat :app:clean :app:assembleDebug --no-daemon --console plain
-    if ($LASTEXITCODE -ne 0) { throw 'Gradle 构建失败' }
+    $gradleArgs = @(':app:clean', ':app:assembleDebug', '--no-daemon', '--console', 'plain')
+    if ($Offline) { $gradleArgs += '--offline' }
+    # Windows PowerShell 5 treats compiler stderr notes as terminating errors.
+    # Gradle's exit code determines success; keep its diagnostics in the log.
+    $previousPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        & ./gradlew.bat @gradleArgs
+        $gradleExit = $LASTEXITCODE
+    } finally { $ErrorActionPreference = $previousPreference }
+    if ($gradleExit -ne 0) { throw 'Gradle 构建失败' }
     $version = Get-Content -Raw ci/version.json | ConvertFrom-Json
     python tools/unified-prototype/build.py --version-code $version.code --version-name "$($version.name)-unified" --sign
     if ($LASTEXITCODE -ne 0) { throw '统一 APK 合包失败' }
@@ -23,8 +34,6 @@ try {
         python tools/compare_apk.py compare $apk --reference ci/reference-apk.json --output dist/comparison.json --quiet > $null
         if ($LASTEXITCODE -ne 0) { throw '云端 APK 与本地基准内容不一致' }
     }
-    python tools/package_backend.py --apk $apk --version $version.name --code $version.code --output "dist/SuperCard-Backend-$($version.name).zip"
-    if ($LASTEXITCODE -ne 0) { throw 'Root 后端打包失败' }
-    python -c "from pathlib import Path; import hashlib; p=Path('dist'); (p/'SHA256SUMS.txt').write_text(''.join(hashlib.sha256(f.read_bytes()).hexdigest()+'  '+f.name+'\n' for f in sorted(p.iterdir()) if f.suffix in ('.apk','.zip')),encoding='utf-8')"
+    python -c "from pathlib import Path; import hashlib,sys; p=Path(sys.argv[1]); (p.parent/'SHA256SUMS.txt').write_text(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\n',encoding='utf-8')" $apk
     if ($LASTEXITCODE -ne 0) { throw '产物哈希生成失败' }
 } finally { Pop-Location }

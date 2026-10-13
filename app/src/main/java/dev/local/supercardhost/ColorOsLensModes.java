@@ -4,12 +4,9 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
-import android.hardware.camera2.CameraCharacteristics;
-import android.hardware.camera2.CameraManager;
 import android.net.Uri;
 import android.os.SystemClock;
 import android.util.Log;
-import android.util.Range;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -71,24 +68,13 @@ public final class ColorOsLensModes {
             add(result, modes, rear, front, new Mode(17, "master", "大师模式", 4, false, 0f));
         }
         add(result, modes, rear, front, new Mode(16, "mirror", "镜子", 0, true, 0f));
-        add(result, modes, rear, front, new Mode(13, "profession", "专业", 4, false, 0f));
         add(result, modes, rear, front, new Mode(14, "panoramic", "全景", 3, false, 0f));
-        add(result, modes, rear, front, new Mode(12, "ar_cute", "萌拍", 5, false, 0f));
         // The spelling high_piexl is the original vivo function type.
         add(result, modes, rear, front, new Mode(8, "high_piexl", "高像素", 24, false, 0f));
         add(result, modes, rear, front, new Mode(3, "mini_distance", "微距", 10, false, 0f));
         add(result, modes, rear, front, new Mode(9, "star_sky", "星空", 18, false, 0f));
         add(result, modes, rear, front,
                 new Mode(11, "document_correction", "文档矫正", 11, false, 0f));
-
-        if (has(modes, 0) && has(rear, 0)) {
-            float minimumZoom = rearMinimumZoom(context);
-            if (minimumZoom > 0f && minimumZoom < 1f) {
-                add(result, modes, rear, front,
-                        new Mode(2, "max_degree", "超广角", 0, false, minimumZoom));
-            }
-        }
-        add(result, modes, rear, front, new Mode(4, "long_focus", "长焦", 40, false, 0f));
 
         // No proven native equivalent for short_video, super_moon or motion_capture.
         return Collections.unmodifiableList(result);
@@ -111,7 +97,12 @@ public final class ColorOsLensModes {
         }
 
         // Same action, component, flags and facing extras as CameraEntry.n(Context,...).
-        Intent intent = new Intent(SHORTCUT_ACTION)
+        // ColorOS advertises highPixel (24) on non-Hasselblad cameras too. The
+        // shortcut action rejects it unless the Hasselblad-specific feature is
+        // enabled; the normal camera entry accepts the same advertised mode.
+        String action = "high_piexl".equals(type)
+                ? "android.media.action.STILL_IMAGE_CAMERA" : SHORTCUT_ACTION;
+        Intent intent = new Intent(action)
                 .setComponent(new ComponentName(CAMERA_PACKAGE, CAMERA_PACKAGE + ".Camera"))
                 .setPackage(CAMERA_PACKAGE)
                 .addFlags(SHORTCUT_FLAGS)
@@ -134,72 +125,6 @@ public final class ColorOsLensModes {
 
     private static boolean has(long mask, int mode) {
         return mode >= 0 && mode < Long.SIZE && (mask & (1L << mode)) != 0L;
-    }
-
-    /** Reads metadata only; this never opens a camera device. */
-    private static float rearMinimumZoom(Context context) {
-        try {
-            CameraManager manager = context.getSystemService(CameraManager.class);
-            if (manager == null) {
-                return 0f;
-            }
-            String[] cameraIds = manager.getCameraIdList();
-            // Native rear/common on this ColorOS camera uses camera 0. Prefer its
-            // logical zoom range, never a guessed factor or another physical lens.
-            for (String cameraId : cameraIds) {
-                if ("0".equals(cameraId)) {
-                    CameraCharacteristics characteristics =
-                            manager.getCameraCharacteristics(cameraId);
-                    Integer facing = characteristics.get(CameraCharacteristics.LENS_FACING);
-                    if (facing != null && facing == CameraCharacteristics.LENS_FACING_BACK) {
-                        return minimumZoom(characteristics);
-                    }
-                }
-            }
-            // Devices with nonnumeric IDs may still expose one rear logical camera.
-            // Multiple candidates are ambiguous, so omit the shortcut in that case.
-            CameraCharacteristics soleRearLogical = null;
-            for (String cameraId : cameraIds) {
-                CameraCharacteristics characteristics = manager.getCameraCharacteristics(cameraId);
-                Integer facing = characteristics.get(CameraCharacteristics.LENS_FACING);
-                int[] capabilities = characteristics.get(
-                        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES);
-                if (facing == null || facing != CameraCharacteristics.LENS_FACING_BACK
-                        || !isLogical(capabilities)) {
-                    continue;
-                }
-                if (soleRearLogical != null) {
-                    return 0f;
-                }
-                soleRearLogical = characteristics;
-            }
-            return soleRearLogical == null ? 0f : minimumZoom(soleRearLogical);
-        } catch (Exception error) {
-            logFailure("Rear zoom metadata unavailable", error);
-            return 0f;
-        }
-    }
-
-    private static boolean isLogical(int[] capabilities) {
-        if (capabilities != null) {
-            for (int capability : capabilities) {
-                if (capability == CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    private static float minimumZoom(CameraCharacteristics characteristics) {
-        Range<Float> range = characteristics.get(CameraCharacteristics.CONTROL_ZOOM_RATIO_RANGE);
-        if (range == null) {
-            return 0f;
-        }
-        float lower = range.getLower();
-        float upper = range.getUpper();
-        return Float.isFinite(lower) && Float.isFinite(upper)
-                && lower > 0f && lower < 1f && upper >= 1f ? lower : 0f;
     }
 
     private static synchronized void logFailure(String message, Exception error) {
