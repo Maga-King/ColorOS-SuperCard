@@ -13,6 +13,7 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <application android:label="超级卡包" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:allowBackup="false">
         <provider android:name=".RootDisplayBootstrapProvider"
@@ -36,6 +37,7 @@
             android:writePermission="android.permission.DUMP"
             android:grantUriPermissions="true" />
         <activity android:name=".GestureAreaActivity" android:exported="true" />
+        <activity android:name=".HostToolsActivity" android:exported="false" />
         <activity android:name=".MemoryPhotoActivity" android:exported="true"
             android:permission="android.permission.DUMP"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />

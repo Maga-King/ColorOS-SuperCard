@@ -8,6 +8,7 @@ import android.net.Uri;
 /** Starts the backend when Android initializes this app, without replacing the OEM Application. */
 public final class RootDisplayBootstrapProvider extends ContentProvider {
     @Override public boolean onCreate() {
+        RootAppSetup.request(getContext(), false, null);
         AutoVirtualDisplayManager.start(getContext(), null);
         return true;
     }

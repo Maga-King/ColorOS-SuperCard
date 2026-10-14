@@ -26,3 +26,5 @@
 - [Vector](https://github.com/JingMatrix/Vector)：设备运行前提，不包含在项目构建产物中。
 
 如需修改或再分发，请分别核对各原版输入和第三方组件的授权条件。
+
+ColorOS 后台和关联启动 provider 适配参考 OpenAlive（Maga-King and OpenAlive contributors，MIT）；相关许可见 `vendor/openalive/LICENSE`。未修改参考项目。

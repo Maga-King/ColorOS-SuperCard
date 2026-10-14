@@ -19,6 +19,10 @@
 !/tools/
 !/tools/*.java
 !/tools/*.py
+!/tools/pay-probe-app/
+!/tools/pay-probe-app/build.gradle.kts
+!/tools/pay-probe-app/src/
+!/tools/pay-probe-app/src/**
 !/tools/unified-prototype/
 !/tools/unified-prototype/build.py
 !/tools/unified-prototype/*.java

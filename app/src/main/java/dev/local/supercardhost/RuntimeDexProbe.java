@@ -44,7 +44,10 @@ public final class RuntimeDexProbe {
             }
             System.loadLibrary("dexkit");
             ClassLoader module = RuntimeDexProbe.class.getClassLoader();
-            ClassLoader target = new PathClassLoader(String.join(File.pathSeparator, paths), module);
+            // Target APKs ship their own obfuscated Kotlin/AndroidX classes. A module parent
+            // would shadow those with the host's copies and report false signature failures.
+            ClassLoader target = new PathClassLoader(String.join(File.pathSeparator, paths),
+                    ClassLoader.getSystemClassLoader().getParent());
             System.out.println("kind=" + args[0] + " apkCount=" + paths.size() + " forceDexKit=true");
             Object report = invokeProbe(args[0], module, target);
             Map<String, Object> values = new TreeMap<>();

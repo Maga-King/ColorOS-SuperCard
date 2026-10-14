@@ -26,12 +26,16 @@ public final class CardConfiguration {
     public interface Callback { void complete(Bundle state, String error); }
 
     public static void install(Application host) throws Exception {
-        int sidebarUid = host.getPackageManager().getPackageUid("com.coloros.smartsidebar", 0);
+        AppPermissionGrants.fromFramework(host);
+        int sidebarUid;
+        try { sidebarUid = host.getPackageManager().getPackageUid("com.coloros.smartsidebar", 0); }
+        catch (android.content.pm.PackageManager.NameNotFoundException absent) { sidebarUid = -1; }
+        final int trustedSidebarUid = sidebarUid;
         int moduleUid = host.getPackageManager().getPackageUid("dev.local.supercardhost", 0);
         host.registerReceiver(new BroadcastReceiver() {
             @Override public void onReceive(Context context, Intent intent) {
                 int uid = getSentFromUid();
-                if (uid != sidebarUid && uid != moduleUid) {
+                if (uid != moduleUid && (trustedSidebarUid < 0 || uid != trustedSidebarUid)) {
                     Log.w("SuperCardSettings", "Rejected configuration sender uid=" + uid);
                     return;
                 }
@@ -40,6 +44,9 @@ public final class CardConfiguration {
                     Bundle result;
                     if ("openFloatSettings".equals(intent.getStringExtra("operation"))) {
                         result = new Bundle(); result.putBoolean("opened", true);
+                    } else if ("diagnostics".equals(intent.getStringExtra("operation"))
+                            || "payTouch".equals(intent.getStringExtra("operation"))) {
+                        result = RuntimeStatus.read(host);
                     } else result = read(host);
                     setResultCode(Activity.RESULT_OK); setResultExtras(result);
                 } catch (Throwable error) {
@@ -60,7 +67,8 @@ public final class CardConfiguration {
         // Bound read/ephemeral-preview and fixed settings-launch calls. A late callback after a service
         // restart must not wedge the client's querying/previewSending flags.
         boolean bounded = callback != null && ("query".equals(operation) || "preview".equals(operation)
-                || "openFloatSettings".equals(operation));
+                || "openFloatSettings".equals(operation) || "diagnostics".equals(operation)
+                || "payTouch".equals(operation));
         AtomicBoolean completed = new AtomicBoolean();
         Runnable timeout = () -> {
             if (completed.compareAndSet(false, true)) callback.complete(null,
@@ -87,7 +95,15 @@ public final class CardConfiguration {
 
     private static void apply(Context context, Intent intent) {
         String operation = intent.getStringExtra("operation");
-        if ("query".equals(operation)) return;
+        if ("query".equals(operation) || "diagnostics".equals(operation)) return;
+        if ("payTouch".equals(operation)) {
+            if (!intent.hasExtra("value") || !(intent.getExtras().get("value") instanceof Boolean))
+                throw new IllegalArgumentException("Missing PAY touch value");
+            PayTouchSettings.save(context, intent.getStringExtra("function"),
+                    intent.getBooleanExtra("value", false));
+            PayRuntimeBridge.refreshTouchPolicy();
+            return;
+        }
         if ("openFloatSettings".equals(operation)) {
             // Only this fixed destination is accepted. No external component, Intent, flags,
             // or arbitrary extras are forwarded from the authenticated request.

@@ -48,33 +48,6 @@ final class PayFunctionFilter {
         });
     }
 
-    static void migrate(Context context) {
-        try {
-            String old = Settings.Secure.getString(context.getContentResolver(), "card_setting_data");
-            String filtered = filterJson(old);
-            if (!java.util.Objects.equals(old, filtered)
-                    && !Settings.Secure.putString(context.getContentResolver(), "card_setting_data", filtered)) {
-                throw new IllegalStateException("Cannot save PAY function migration");
-            }
-        } catch (Exception error) { Log.e("SuperCardSettings", "Cannot filter PAY functions", error); }
-    }
-
-    private static String filterJson(String json) throws Exception {
-        if (json == null || json.isEmpty()) return json;
-        JSONObject config = new JSONObject(json);
-        JSONArray cards = config.optJSONArray("cards");
-        boolean changed = false;
-        if (cards != null) for (int i = 0; i < cards.length(); i++) {
-            JSONObject card = cards.getJSONObject(i);
-            if (!"pay".equals(card.optString("type"))) continue;
-            JSONArray functions = card.optJSONArray("functions");
-            if (functions == null) continue;
-            for (int j = functions.length() - 1; j >= 0; j--) {
-                if (removed(functions.getJSONObject(j).optString("type"))) {
-                    functions.remove(j); changed = true;
-                }
-            }
-        }
-        return changed ? config.toString() : json;
-    }
+    static void migrate(Context context) { PayFunctionValues.migrate(context); }
+    private static String filterJson(String json) throws Exception { return PayFunctionValues.filterJson(json); }
 }

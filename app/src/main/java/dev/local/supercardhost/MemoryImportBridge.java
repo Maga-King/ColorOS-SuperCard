@@ -93,7 +93,8 @@ public final class MemoryImportBridge {
     private static volatile boolean providerObserved, documentsObserved;
     private static volatile Method imageImport, manualImport;
     private static volatile Constructor<?> imageInfoConstructor, imageRequestConstructor, pairConstructor;
-    private static volatile Method imageMemory, imageCleanup, nativeJson;
+    private static volatile Method imageCleanup, nativeJson;
+    private static volatile MemoryImageAdapter imageAdapter;
     private static volatile Constructor<?> attachmentConstructor;
     private static volatile boolean imageSaveObserved, voiceStoreObserved;
     private static volatile Object manualSingleton;
@@ -113,6 +114,7 @@ public final class MemoryImportBridge {
             observeProvider(module);
             observeManualRequests(module);
             observeImageSaving(module);
+            Log.i(TAG, "Native image adapter ready: " + (imageAdapter.unit == null ? "legacy" : "coroutine"));
             try { resolveVoiceImporter(); observeVoiceStore(module); }
             catch (Throwable error) { audioError = safeError(error); Log.w(TAG, "Voice importer unavailable: " + audioError); }
         } catch (Throwable error) {
@@ -141,50 +143,18 @@ public final class MemoryImportBridge {
     }
 
     private static void resolveImporters() throws Exception {
-        Class<?> image = load(ENTRY + "portal.usecase.PortalImageUseCase");
-        Class<?> info = load(PACKAGE + ".utils.ImageInfo");
-        imageInfoConstructor = info.getDeclaredConstructor(String.class, Uri.class, String.class,
-                int.class, int.class, long.class);
-        imageRequestConstructor = null;
-        for (Class<?> nested : image.getDeclaredClasses()) {
-            for (Constructor<?> constructor : nested.getDeclaredConstructors()) {
-                if (Arrays.equals(constructor.getParameterTypes(), new Class<?>[]{List.class,
-                        String.class, String.class, String.class, boolean.class})) {
-                    if (imageRequestConstructor != null) throw new IllegalStateException("Ambiguous image request");
-                    imageRequestConstructor = constructor;
-                }
-            }
-        }
-        if (imageRequestConstructor == null) throw new NoSuchMethodException("Image request signature changed");
-        imageImport = suspendMethod(image, imageRequestConstructor.getDeclaringClass());
-        Class<?> collectMemory = load(PACKAGE + ".scene.bean.DataCollectMemory");
-        for (Method method : image.getDeclaredMethods()) {
-            if (Modifier.isStatic(method.getModifiers())) continue;
-            if (Arrays.equals(method.getParameterTypes(), new Class<?>[]{Uri.class, String.class, String.class})
-                    && method.getReturnType() == collectMemory) {
-                if (imageMemory != null) throw new IllegalStateException("Ambiguous image memory model");
-                method.setAccessible(true); imageMemory = method;
-            }
-            if (method.getParameterCount() == 0 && method.getReturnType() == void.class) {
-                if (imageCleanup != null) throw new IllegalStateException("Ambiguous image bitmap cleanup");
-                method.setAccessible(true); imageCleanup = method;
-            }
-        }
-        if (imageMemory == null || imageCleanup == null) throw new NoSuchMethodException("Image model signature changed");
+        imageAdapter = MemoryImageAdapter.resolve(loader);
+        imageInfoConstructor = imageAdapter.info;
+        imageRequestConstructor = imageAdapter.request;
+        imageImport = imageAdapter.importer;
+        imageCleanup = imageAdapter.cleanup;
         // @Keep Attachment: preserve the original model defaults and serialized field names.
         attachmentConstructor = load(PACKAGE + ".db.table.Attachment").getDeclaredConstructor(
                 String.class, String.class, int.class, String.class, String.class, int.class, int.class,
                 String.class, String.class, int.class, String.class, String.class, String.class, String.class,
                 long.class, String.class, String.class, boolean.class, Integer.class, String.class,
                 String.class, Long.class);
-        for (Method method : load(PACKAGE + ".ext.GsonExtKt").getDeclaredMethods()) {
-            if (Modifier.isStatic(method.getModifiers()) && method.getReturnType() == String.class
-                    && Arrays.equals(method.getParameterTypes(), new Class<?>[]{Object.class, boolean.class})) {
-                if (nativeJson != null) throw new IllegalStateException("Ambiguous native JSON serializer");
-                method.setAccessible(true); nativeJson = method;
-            }
-        }
-        if (nativeJson == null) throw new NoSuchMethodException("Native serializer signature changed");
+        nativeJson = MemoryDexResolver.jsonSerializer(loader, false);
         Class<?> manual = load(ENTRY + "manual.MemoryManualImport");
         Class<?> pair = load("kotlin.Pair");
         pairConstructor = pair.getDeclaredConstructor(Object.class, Object.class);
@@ -403,15 +373,8 @@ public final class MemoryImportBridge {
     }
 
     private static void observeImageSaving(XposedModule module) throws Exception {
-        Method save = null;
-        for (Method method : imageImport.getDeclaringClass().getDeclaredMethods()) {
-            if (!Modifier.isStatic(method.getModifiers()) && method.getReturnType() == void.class
-                    && Arrays.equals(method.getParameterTypes(), new Class<?>[]{Uri.class, String.class, String.class})) {
-                if (save != null) throw new IllegalStateException("Ambiguous per-image save entry");
-                save = method;
-            }
-        }
-        if (save == null) throw new NoSuchMethodException("Per-image save signature changed");
+        Method save = imageAdapter.save;
+        final Object completion = imageAdapter.completion();
         module.hook(save).intercept(chain -> {
             Job job = IMAGE_JOBS.get(chain.getThisObject());
             if (job == null) return chain.proceed();
@@ -422,14 +385,14 @@ public final class MemoryImportBridge {
                     && job.sourcePkg.equals(chain.getArg(1)) && job.sourceName.equals(chain.getArg(2))) {
                 job.imageValidated((Uri) uri);
             } else job.fail("native_error", "原生图片校验请求与当前批次不符");
-            return null;
+            return completion;
         });
         observeImageFinalization(module);
         imageSaveObserved = true;
     }
 
     private static void observeImageFinalization(XposedModule module) throws Exception {
-        Class<?> model = imageMemory.getReturnType();
+        Class<?> model = imageAdapter.model;
         Method create = model.getMethod("toMemoryWithDetails", String.class, String.class);
         if (create.getReturnType() != load(PACKAGE + ".db.bean.MemoryWithDetails")) {
             throw new IllegalStateException("Original memory finalization signature changed");
@@ -534,7 +497,7 @@ public final class MemoryImportBridge {
         if (job.isComplete()) { job.deleteImageCopies(); return; }
         Bundle ready = readiness();
         if (!ready.getBoolean("ready")) { job.deleteImageCopies(); job.fail("not_ready", ready.getString("error")); return; }
-        Object model = imageMemory.invoke(useCase, job.imageUris.get(0), job.sourcePkg, job.sourceName);
+        Object model = imageAdapter.createModel(useCase, job.imageUris.get(0), job.sourcePkg, job.sourceName, job.guid);
         JSONObject data = new JSONObject(serialize(model));
         JSONObject extra = batchExtra(job, data.optString("extraData"));
         data.put("extraData", extra.toString());

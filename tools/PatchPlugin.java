@@ -9,6 +9,7 @@ import org.jf.dexlib2.iface.instruction.*;
 import org.jf.dexlib2.iface.instruction.formats.*;
 import org.jf.dexlib2.iface.reference.*;
 import org.jf.dexlib2.immutable.instruction.*;
+import org.jf.dexlib2.immutable.*;
 import org.jf.dexlib2.immutable.reference.*;
 import org.jf.dexlib2.rewriter.*;
 import org.jf.dexlib2.writer.io.MemoryDataStore;
@@ -16,6 +17,93 @@ import org.jf.dexlib2.writer.pool.DexPool;
 
 /** Adapts OEM UI/keyguard/display boundaries, preserving resources and payment logic. */
 public final class PatchPlugin {
+    private static final String SELF_BRIDGE = "Ldev/local/supercardhost/SelfSettingsCompat;";
+    private static final Map<String, Set<String>> SELF_METHODS = Map.ofEntries(
+        Map.entry("Lcom/vivo/card/ui/view/CameraCardViewForEdit;", Set.of("setInitData", "setRefreshData")),
+        Map.entry("Lcom/vivo/card/preference/BasePreferenceActivity;", Set.of("onCreate")),
+        Map.entry("Lcom/vivo/card/setting/CardSettingsPreferenceFragment;", Set.of("initPreference", "updateAllPreferenceVisibility")),
+        Map.entry("Lcom/vivo/card/setting/CardEditAdapter;", Set.of("onBindViewHolder")),
+        Map.entry("Lcom/vivo/card/adapter/CardManagerAdapter$CardManagerHorizontalAdapter$CardListViewHolder;", Set.of("bind4UsingHolderItem")),
+        Map.entry("Lcom/vivo/card/adapter/CardManagerAdapter;", Set.of("bindImageCardView", "setupCardViewScale", "handleStagingCardClick")),
+        Map.entry("Lcom/vivo/card/utils/ExtensionsKt;", Set.of("setSpanSummaryExText")),
+        Map.entry("Lcom/vivo/card/utils/SettingsUtils$Secure;", Set.of("getString")),
+        Map.entry("Lcom/vivo/card/cards/commondata/local/CardSettingsManager;", Set.of("getCardSetBean")),
+        Map.entry("Lcom/vivo/card/data/CardDataInitializer;", Set.of("handleSwitchStateOnFirstBoot", "getOrLoadDefaultJson", "getCameraFunType", "queryCameraFunctions", "queryCameraFuncNameChanged", "isStagingCardPluginAvailable", "init")),
+        Map.entry("Lcom/vivo/card/cards/cardcamera/utils/CameraCardUtils;", Set.of("getResIdByName", "getStringByResName")),
+        Map.entry("Lcom/vivo/card/utils/CardUtil;", Set.of("getStringByResName", "createViewToBitmap")));
+
+    private static boolean selfMethod(Method method) {
+        if (!SELF_METHODS.getOrDefault(method.getDefiningClass(), Set.of()).contains(method.getName())) return false;
+        if (method.getName().equals("getString")) return method.getParameterTypes().size() == 4;
+        if (method.getName().equals("onBindViewHolder")) return method.getParameterTypes().toString()
+                .equals("[Landroidx/recyclerview/widget/RecyclerView$ViewHolder;, I]");
+        return true;
+    }
+
+    private static ClassDef patchSelf(ClassDef definition, Set<String> observed) {
+        if (!SELF_METHODS.containsKey(definition.getType())) return definition;
+        List<Method> methods = new ArrayList<>();
+        for (Method method : definition.getMethods()) {
+            if (!selfMethod(method)) { methods.add(method); continue; }
+            String key = definition.getType() + "->" + method.getName();
+            if (!observed.add(key)) throw new IllegalStateException("Ambiguous self adapter method: " + key);
+            if (method.getImplementation() == null) throw new IllegalStateException("Missing self adapter body: " + key);
+            methods.add(new ImmutableMethod(method.getDefiningClass(), "supercardOriginal$" + method.getName(),
+                    method.getParameters(), method.getReturnType(), method.getAccessFlags(), Set.of(),
+                    method.getHiddenApiRestrictions(), method.getImplementation()));
+            methods.add(new ImmutableMethod(method.getDefiningClass(), method.getName(), method.getParameters(),
+                    method.getReturnType(), method.getAccessFlags(), method.getAnnotations(),
+                    method.getHiddenApiRestrictions(), selfWrapper(method)));
+        }
+        return new ImmutableClassDef(definition.getType(), definition.getAccessFlags(), definition.getSuperclass(),
+                definition.getInterfaces(), definition.getSourceFile(), definition.getAnnotations(), definition.getFields(), methods);
+    }
+
+    private static ImmutableMethodImplementation selfWrapper(Method method) {
+        boolean isStatic = AccessFlags.STATIC.isSet(method.getAccessFlags());
+        int count = method.getParameterTypes().size();
+        List<Instruction> code = new ArrayList<>();
+        code.add(new ImmutableInstruction21c(Opcode.CONST_CLASS, 0, new ImmutableTypeReference(method.getDefiningClass())));
+        code.add(isStatic ? new ImmutableInstruction11n(Opcode.CONST_4, 1, 0)
+                : new ImmutableInstruction22x(Opcode.MOVE_OBJECT_FROM16, 1, 6));
+        code.add(new ImmutableInstruction21c(Opcode.CONST_STRING, 2, new ImmutableStringReference(method.getName())));
+        code.add(new ImmutableInstruction11n(Opcode.CONST_4, 4, count));
+        code.add(new ImmutableInstruction22c(Opcode.NEW_ARRAY, 3, 4, new ImmutableTypeReference("[Ljava/lang/Object;")));
+        int register = isStatic ? 6 : 7;
+        for (int i = 0; i < count; i++, register++) {
+            String type = method.getParameterTypes().get(i).toString();
+            if (type.startsWith("L") || type.startsWith("["))
+                code.add(new ImmutableInstruction22x(Opcode.MOVE_OBJECT_FROM16, 5, register));
+            else if (type.equals("I") || type.equals("Z")) {
+                String box = type.equals("I") ? "Ljava/lang/Integer;" : "Ljava/lang/Boolean;";
+                code.add(new ImmutableInstruction3rc(Opcode.INVOKE_STATIC_RANGE, register, 1,
+                        new ImmutableMethodReference(box, "valueOf", List.of(type), box)));
+                code.add(new ImmutableInstruction11x(Opcode.MOVE_RESULT_OBJECT, 5));
+            } else throw new IllegalStateException("Unsupported self adapter argument: " + method);
+            code.add(new ImmutableInstruction11n(Opcode.CONST_4, 4, i));
+            code.add(new ImmutableInstruction23x(Opcode.APUT_OBJECT, 5, 3, 4));
+        }
+        code.add(new ImmutableInstruction35c(Opcode.INVOKE_STATIC, 4, 0, 1, 2, 3, 0,
+                new ImmutableMethodReference(SELF_BRIDGE, "invoke", List.of("Ljava/lang/Class;", "Ljava/lang/Object;",
+                "Ljava/lang/String;", "[Ljava/lang/Object;"), "Ljava/lang/Object;")));
+        String result = method.getReturnType();
+        if (result.equals("V")) code.add(new ImmutableInstruction10x(Opcode.RETURN_VOID));
+        else {
+            code.add(new ImmutableInstruction11x(Opcode.MOVE_RESULT_OBJECT, 0));
+            if (result.equals("I") || result.equals("Z")) {
+                String box = result.equals("I") ? "Ljava/lang/Integer;" : "Ljava/lang/Boolean;";
+                code.add(new ImmutableInstruction21c(Opcode.CHECK_CAST, 0, new ImmutableTypeReference(box)));
+                code.add(new ImmutableInstruction35c(Opcode.INVOKE_VIRTUAL, 1, 0, 0, 0, 0, 0,
+                        new ImmutableMethodReference(box, result.equals("I") ? "intValue" : "booleanValue", List.of(), result)));
+                code.add(new ImmutableInstruction11x(Opcode.MOVE_RESULT, 0));
+                code.add(new ImmutableInstruction11x(Opcode.RETURN, 0));
+            } else if (result.startsWith("L") || result.startsWith("[")) {
+                code.add(new ImmutableInstruction21c(Opcode.CHECK_CAST, 0, new ImmutableTypeReference(result)));
+                code.add(new ImmutableInstruction11x(Opcode.RETURN_OBJECT, 0));
+            } else throw new IllegalStateException("Unsupported self adapter result: " + method);
+        }
+        return new ImmutableMethodImplementation(register, code, List.of(), List.of());
+    }
     private static final String CARD_UTIL = "Lcom/vivo/card/utils/CardUtil;";
     private static final Map<String, Integer> PAY_DENSITY_CALLS = Map.of(
         "Lcom/vivo/card/cards/cardpay/adapter/PayCardAdapter;", 38,
@@ -125,14 +213,16 @@ public final class PatchPlugin {
         var releaseBridge = new ImmutableMethodReference("Ldev/local/supercardhost/UiCompat;", "releaseVirtualDisplay",
             List.of("Landroid/hardware/display/VirtualDisplay;"), "V");
         Set<String> patched = new TreeSet<>();
+        Set<String> selfPatched = new TreeSet<>();
         var rewriter = new DexRewriter(new RewriterModule() {
             @Override public Rewriter<ClassDef> getClassDefRewriter(Rewriters rewriters) {
                 var original = new ClassDefRewriter(rewriters);
                 return definition -> {
                     ClassDef result = original.rewrite(definition);
                     // Only these callers change; shared CardUtil and all other card types stay intact.
-                    return fixPayDensity && PAY_DENSITY_CALLS.containsKey(definition.getType())
-                        ? payDensityRewriter.getClassDefRewriter().rewrite(result) : result;
+                    if (fixPayDensity && PAY_DENSITY_CALLS.containsKey(definition.getType()))
+                        result = payDensityRewriter.getClassDefRewriter().rewrite(result);
+                    return fixPayDensity ? patchSelf(result, selfPatched) : result;
                 };
             }
             @Override public Rewriter<Instruction> getInstructionRewriter(Rewriters rewriters) {
@@ -204,6 +294,13 @@ public final class PatchPlugin {
         }
         if (patched.isEmpty()) throw new IllegalStateException("Expected OEM call sites not found");
         if (fixPayDensity) {
+            Set<String> expected = new TreeSet<>();
+            SELF_METHODS.forEach((owner, names) -> names.forEach(name -> expected.add(owner + "->" + name)));
+            if (!expected.equals(selfPatched)) {
+                expected.removeAll(selfPatched);
+                throw new IllegalStateException("Missing self adapter methods: " + expected);
+            }
+            Files.write(Path.of(args[2]).toAbsolutePath().resolveSibling("self-settings-report.txt"), selfPatched);
             List<String> report = verifyPayDensity(densityBefore, readDensityCalls(temporaryOutput.toString()));
             Files.write(Path.of(args[2]).toAbsolutePath().resolveSibling("pay-density-report.txt"), report);
             report.forEach(System.out::println);

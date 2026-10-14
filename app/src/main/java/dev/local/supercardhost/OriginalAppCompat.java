@@ -15,6 +15,12 @@ import java.lang.reflect.Method;
 /** Adds compatibility code to the original app before its activities are loaded. */
 final class OriginalAppCompat {
     static void install(io.github.libxposed.api.XposedModule xposed, ClassLoader target, ApplicationInfo info) throws Exception {
+        // Unified settings call their compatibility bridge directly from the patched
+        // DEX. Vector can still deliver a self callback, but must not apply it twice.
+        if ("dev.local.supercardhost".equals(info.packageName)) {
+            Log.i("SuperCardSettings", "Unified settings use built-in compatibility");
+            return;
+        }
         org.lsposed.hiddenapibypass.HiddenApiBypass.addHiddenApiExemptions(
                 "Landroid/", "Ldalvik/system/");
         Class<?> threadType = Class.forName("android.app.ActivityThread");

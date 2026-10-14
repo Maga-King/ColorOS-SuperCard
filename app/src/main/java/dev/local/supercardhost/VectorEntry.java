@@ -53,6 +53,8 @@ public final class VectorEntry extends XposedModule {
             }
             if (!SYSTEM_UI.equals(param.getPackageName()) || !param.isFirstPackage()) return;
             current = this;
+            RuntimeStatus.framework = getFrameworkName();
+            RuntimeStatus.version = getFrameworkVersion();
             if (!hookInstalled.compareAndSet(false, true)) return;
 
             Method method = Instrumentation.class.getDeclaredMethod(
@@ -74,6 +76,7 @@ public final class VectorEntry extends XposedModule {
                 }
             });
             Log.i(TAG, "Installed SystemUI application bootstrap");
+            RuntimeStatus.hooked = true;
         } catch (Throwable error) {
             hookInstalled.set(false);
             Log.e(TAG, "Unable to install SystemUI bootstrap", error);

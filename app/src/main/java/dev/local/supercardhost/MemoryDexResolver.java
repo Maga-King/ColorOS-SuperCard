@@ -35,23 +35,11 @@ public final class MemoryDexResolver {
             }
         }
         Method result;
-        try {
-            if (forceDexKit) throw new NoSuchMethodException("Forced read-only DexKit probe");
-            String owner, name;
-            switch (role) {
-                case "privacy": owner = PKG + ".utils.p2"; name = "l"; break;
-                case "service": owner = PKG + ".utils.f0"; name = "P"; break;
-                case "network": owner = PKG + ".network.NetworkUtil"; name = "s"; break;
-                default: throw new IllegalArgumentException("Unknown memory gate");
-            }
-            result = load(loader, owner).getDeclaredMethod(name);
-            if (!staticBoolean(result)) throw new NoSuchMethodException("Native gate signature changed");
-            result.setAccessible(true);
-        } catch (ReflectiveOperationException | LinkageError failure) {
-            try (ObfuscationResolver dex = ObfuscationResolver.open(loader)) {
-                result = dexGate(dex, loader, role);
-                Log.i(TAG, "Resolved " + role + " via DexKit: " + result);
-            }
+        // Obfuscated names can keep the same signature while changing meaning (17.3 f0.P).
+        // Only a semantic match may populate this per-loader cache.
+        try (ObfuscationResolver dex = ObfuscationResolver.open(loader)) {
+            result = dexGate(dex, loader, role);
+            Log.i(TAG, "Resolved " + role + " via DexKit: " + result);
         }
         if (!forceDexKit) synchronized (CACHE) { CACHE.get(loader).put(role, result); }
         return result;
@@ -64,7 +52,7 @@ public final class MemoryDexResolver {
                         .paramCount(0).usingStrings("SuperBreenoAuthorizationHelper", "isMemoryPrivacyEnable: "),
                         method -> nativeOwner(method) && staticBoolean(method));
             case "service":
-                // P() -> t(null,1,null) -> s(key). P has no own strings; match the read-only chain.
+                // Service wrapper -> default-key helper -> settings reader; match their read-only chain.
                 MethodMatcher read = MethodMatcher.create().returnType("int").paramTypes("java.lang.String")
                         .usingStrings("AuthorizationUtils", "getMemoryServiceSwitchStatus ");
                 MethodMatcher defaults = MethodMatcher.create().returnType("int")
@@ -111,22 +99,16 @@ public final class MemoryDexResolver {
     }
 
     public static Method storageGuard(ClassLoader loader, boolean forceDexKit) throws Exception {
-        if (!forceDexKit) try {
-            Method selected = null;
-            for (Method method : load(loader, PKG + ".voicecollect.utils.w").getDeclaredMethods()) {
-                if (storageShape(method)) {
-                    if (selected != null) throw new NoSuchMethodException("Ambiguous native storage guard");
-                    selected = method;
-                }
-            }
-            if (selected == null) throw new NoSuchMethodException("Native storage guard changed");
-            selected.setAccessible(true); return selected;
-        } catch (ReflectiveOperationException | LinkageError failure) {
-            // Discovery failure only; native guard invocation happens outside this fallback.
+        if (!forceDexKit) synchronized (CACHE) {
+            Method cached = CACHE.computeIfAbsent(loader, ignored -> new LinkedHashMap<>()).get("storage");
+            if (cached != null) return cached;
         }
+        Method result;
         try (ObfuscationResolver dex = ObfuscationResolver.open(loader)) {
-            return dexStorage(dex);
+            result = dexStorage(dex);
         }
+        if (!forceDexKit) synchronized (CACHE) { CACHE.get(loader).put("storage", result); }
+        return result;
     }
 
     private static Method dexStorage(ObfuscationResolver dex) throws Exception {
@@ -135,15 +117,33 @@ public final class MemoryDexResolver {
                 method -> nativeOwner(method) && storageShape(method));
     }
 
-    public static Class<?> voiceCallback(ClassLoader loader, Method handle, boolean forceDexKit) throws Exception {
-        Class<?> contract = handle.getParameterTypes()[5];
+    public static Method jsonSerializer(ClassLoader loader, boolean forceDexKit) throws Exception {
         if (!forceDexKit) try {
-            Class<?> named = load(loader, PKG + ".voicecollect.collect.f");
-            if (!callbackShape(named, contract)) throw new ClassNotFoundException("Native voice callback changed");
-            return named;
+            Method selected = null;
+            for (Method method : load(loader, PKG + ".ext.GsonExtKt").getDeclaredMethods()) {
+                if (!jsonSerializerShape(method)) continue;
+                if (selected != null) throw new NoSuchMethodException("Ambiguous native JSON serializer");
+                selected = method;
+            }
+            if (selected == null) throw new NoSuchMethodException("Native JSON serializer changed");
+            selected.setAccessible(true);
+            return selected;
         } catch (ReflectiveOperationException | LinkageError failure) {
-            // Recover the same callback singleton that the native record-result coroutine reads.
+            // New releases rename the Kotlin file class as well as its methods.
         }
+        try (ObfuscationResolver dex = ObfuscationResolver.open(loader)) {
+            return dexJsonSerializer(dex);
+        }
+    }
+
+    private static Method dexJsonSerializer(ObfuscationResolver dex) throws Exception {
+        return dex.uniqueMethod("memory JSON serializer", MethodMatcher.create().returnType("java.lang.String")
+                .paramTypes("java.lang.Object", "boolean").usingStrings("GsonExt", "toJsonStr error, "),
+                method -> nativeOwner(method) && jsonSerializerShape(method));
+    }
+
+    public static Class<?> voiceCallback(ClassLoader loader, Method handle, boolean forceDexKit) throws Exception {
+        // The callback's short class name is not an identity; follow the original recording path.
         try (ObfuscationResolver dex = ObfuscationResolver.open(loader)) {
             return dexVoiceCallback(dex, loader, handle);
         }
@@ -155,8 +155,22 @@ public final class MemoryDexResolver {
         MethodMatcher caller = MethodMatcher.create().returnType("java.lang.Object")
                 .paramTypes("java.lang.Object").addInvoke(MethodMatcher.create(handle));
         for (MethodData data : dex.bridge().findMethod(FindMethod.create().matcher(caller))) {
-            if (!data.getDeclaredClassName().startsWith(PKG
-                    + ".business.collection.voice.VoiceCollectionDetailFragment$startRecord$")) continue;
+            // 17.3 moved this coroutine from the detail Fragment into its bottom-bar Controller.
+            // Identify the original in-app recording path by its handler call and trigger instead
+            // of either UI class name; background VoiceCollector callbacks must not be substituted.
+            if (!data.getDeclaredClassName().startsWith(PKG + ".business.collection.voice.")) continue;
+            boolean voiceRecord = false;
+            for (UsingFieldData use : data.getUsingFields()) {
+                FieldData field = use.getField();
+                if (use.getUsingType().isRead() && Modifier.isStatic(field.getModifiers())
+                        && field.getDeclaredClassName().equals(handle.getParameterTypes()[3].getName())
+                        && field.getTypeName().equals(field.getDeclaredClassName())
+                        && field.getName().equals("VOICE_RECORD")) {
+                    voiceRecord = true;
+                    break;
+                }
+            }
+            if (!voiceRecord) continue;
             for (UsingFieldData use : data.getUsingFields()) {
                 FieldData field = use.getField();
                 if (!use.getUsingType().isRead() || !Modifier.isStatic(field.getModifiers())
@@ -187,6 +201,10 @@ public final class MemoryDexResolver {
         return Modifier.isStatic(method.getModifiers()) && method.getReturnType() == boolean.class
                 && Arrays.equals(method.getParameterTypes(), new Class<?>[]{long.class});
     }
+    private static boolean jsonSerializerShape(Method method) {
+        return Modifier.isStatic(method.getModifiers()) && method.getReturnType() == String.class
+                && Arrays.equals(method.getParameterTypes(), new Class<?>[]{Object.class, boolean.class});
+    }
     private static Class<?> load(ClassLoader loader, String name) throws ClassNotFoundException {
         return Class.forName(name, false, loader);
     }
@@ -198,10 +216,12 @@ public final class MemoryDexResolver {
         boolean ok = true;
         // Share one DEX index across all forced checks to stay inside the ordered-reply budget.
         try (ObfuscationResolver dex = forceDexKit ? ObfuscationResolver.open(loader) : null) {
-            for (String role : Arrays.asList("privacy", "service", "network", "storage", "voiceCallback")) {
+            for (String role : Arrays.asList("privacy", "service", "network", "storage", "voiceCallback", "jsonSerializer")) {
                 try {
                     if (role.equals("storage")) report.putString(role,
                             (forceDexKit ? dexStorage(dex) : storageGuard(loader, false)).toGenericString());
+                    else if (role.equals("jsonSerializer")) report.putString(role,
+                            (forceDexKit ? dexJsonSerializer(dex) : jsonSerializer(loader, false)).toGenericString());
                     else if (role.equals("voiceCallback")) {
                         Class<?> handler = load(loader, PKG + ".voicecollect.collect.VoiceRecordResultHandler");
                         Method handle = null;
@@ -230,6 +250,9 @@ public final class MemoryDexResolver {
             ok = false;
             report.putString("dexkitError", failure.getClass().getSimpleName() + ": " + failure.getMessage());
         }
+        Bundle images = MemoryImageAdapter.probe(loader);
+        report.putAll(images);
+        if (images.containsKey("imageContractError")) ok = false;
         report.putBoolean("ok", ok); report.putString("status", ok ? "probe_ok" : "probe_failed");
         return report;
     }

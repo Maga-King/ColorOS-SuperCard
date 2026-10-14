@@ -1,0 +1,12 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:label="PAY 屏幕测试" android:theme="@android:style/Theme.Material.Light.NoActionBar"
+        android:allowBackup="false" android:resizeableActivity="true" android:supportsRtl="true">
+        <activity android:name=".ProbeActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity android:name=".NextActivity" android:exported="false" />
+    </application>
+</manifest>

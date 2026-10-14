@@ -41,6 +41,12 @@ public final class PayRuntimeBridge {
     private static ActivityManager activityManager;
     private static Handler worker;
     private static int previousDisplay = -1;
+    private static Application hostApplication;
+    private static ComponentName observedPaymentPage;
+    private static Object touchView;
+    private static String touchActivity;
+    private static Method updateTouchMethod;
+    private static long appliedTouchGeneration = -1;
 
     // These notification markers are accessed only on the main thread.
     private static Object lastManager;
@@ -74,6 +80,7 @@ public final class PayRuntimeBridge {
             activityManager = host.getSystemService(ActivityManager.class);
             if (activityManager == null) throw new IllegalStateException("ActivityManager unavailable");
             cardPlugin = plugin;
+            hostApplication = host;
             PayDisplayReadiness.install(module, host, pluginLoader);
 
             Method launch = findMethod(managerType, "launchPayment",
@@ -85,6 +92,7 @@ public final class PayRuntimeBridge {
                     try {
                         activeManager = chain.getThisObject();
                         activeFunction = (String) chain.getArg(0);
+                        observedPaymentPage = null;
                         launchGeneration++;
                     } catch (Throwable error) {
                         failure("capture payment manager", error);
@@ -98,6 +106,10 @@ public final class PayRuntimeBridge {
             worker = new Handler(thread.getLooper());
             worker.post(POLL);
             Log.i(TAG, "Original payment task observer installed");
+            try { installTouchPolicy(module, pluginLoader); }
+            catch (Throwable error) { failure("install payment touch policy", error); }
+            try { PayDiagnostics.install(module, host, pluginLoader); }
+            catch (Throwable error) { failure("install optional payment diagnostics", error); }
         } catch (Throwable error) {
             INSTALLED.set(false);
             failure("install", error);
@@ -120,6 +132,53 @@ public final class PayRuntimeBridge {
             failure("read payment display", error);
             return -1;
         }
+    }
+
+    private static void installTouchPolicy(XposedModule module, ClassLoader loader) throws Exception {
+        Class<?> constants = loader.loadClass("com.vivo.card.utils.CardTypeConstant");
+        module.hook(findMethod(constants, "isNoInterceptActivity", String.class)).intercept(chain -> {
+            if (Boolean.TRUE.equals(chain.proceed())) return true;
+            String activity = (String) chain.getArg(0);
+            ComponentName observed = observedPaymentPage;
+            String expected = PayTouchSettings.targetPackage(activeFunction);
+            if (getActiveDisplayId() <= 0 || observed == null || expected == null
+                    || !expected.equals(observed.getPackageName())
+                    || !observed.getClassName().equals(activity)) return false;
+            // The original authentication/fullscreen and virtual mask handling stay in charge.
+            if (isAuthenticationPage(activity)) return false;
+            return PayTouchSettings.enabled(hostApplication, activeFunction);
+        });
+        Class<?> view = loader.loadClass("com.vivo.card.cards.cardpay.PayCardView");
+        updateTouchMethod = findMethod(view, "updatePayClickListener", String.class);
+        module.hook(updateTouchMethod).intercept(chain -> {
+            touchView = chain.getThisObject();
+            touchActivity = (String) chain.getArg(0);
+            return chain.proceed();
+        });
+        for (String name : new String[]{"onCardPackHiding", "onDetachedFromWindow", "resetCard"}) {
+            module.hook(findMethod(view, name)).intercept(chain -> {
+                if (touchView == chain.getThisObject()) {
+                    touchView = null;
+                    touchActivity = null;
+                    observedPaymentPage = null;
+                }
+                return chain.proceed();
+            });
+        }
+    }
+
+    private static boolean isAuthenticationPage(String activity) {
+        return "com.tencent.mm.plugin.walletlock.gesture.ui.GestureGuardLogicUI".equals(activity)
+                || "com.tencent.mm.plugin.walletlock.fingerprint.ui.FingerprintWalletLockUI".equals(activity)
+                || "com.tencent.mm.framework.app.UIPageFragmentActivity".equals(activity)
+                || "com.alipay.mobile.security.gesture.ui.GestureLiteActivity_".equals(activity);
+    }
+
+    static void refreshTouchPolicy() {
+        // Configuration requests are delivered on SystemUI's main thread.
+        if (touchView == null || touchActivity == null || getActiveDisplayId() <= 0) return;
+        try { updateTouchMethod.invoke(touchView, touchActivity); }
+        catch (Throwable error) { failure("refresh payment touch policy", error); }
     }
 
     private static final Runnable POLL = new Runnable() {
@@ -174,6 +233,8 @@ public final class PayRuntimeBridge {
         if (activeManager != manager || launchGeneration != generation
                 || getActiveDisplayId() != display) return;
 
+        observedPaymentPage = display > 0 && selectedDisplay == display ? component : null;
+
         if (display > 0 && selectedDisplay == display && manager != null) {
             boolean changed = lastManager != manager || lastManagerGeneration != generation
                     || lastManagerDisplay != display || !component.equals(lastManagerComponent);
@@ -209,6 +270,14 @@ public final class PayRuntimeBridge {
                 failure("notify original top activity", error);
             }
         }
+        // Reusing a display and the same page for another function still changes its
+        // per-function policy, even when the original top-activity notification is deduplicated.
+        if (display > 0 && selectedDisplay == display && appliedTouchGeneration != generation
+                && touchView != null) {
+            touchActivity = component.getClassName();
+            refreshTouchPolicy();
+            appliedTouchGeneration = generation;
+        }
     }
 
     private static void correctTaskId(Object manager, int taskId) throws Exception {
@@ -222,7 +291,8 @@ public final class PayRuntimeBridge {
     }
 
     private static boolean isPaymentPackage(String name) {
-        return "com.tencent.mm".equals(name) || "com.eg.android.AlipayGphone".equals(name);
+        return "com.tencent.mm".equals(name) || "com.eg.android.AlipayGphone".equals(name)
+                || PayDiagnostics.isTestPackage(name);
     }
 
     private static Method findMethod(Class<?> type, String name, Class<?>... parameters)

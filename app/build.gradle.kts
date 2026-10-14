@@ -2,6 +2,11 @@ plugins { id("com.android.application") }
 android {
     namespace = "dev.local.supercardhost"
     compileSdk = 36
+    // Release CI also uses assembleDebug, so DEBUG alone must never enable probes.
+    sourceSets.getByName("main").java.srcDir(
+        if (providers.gradleProperty("payProbe").orNull == "true")
+            "src/payProbe/java" else "src/noPayProbe/java"
+    )
     defaultConfig {
         applicationId = "dev.local.supercardhost"
         minSdk = 31
