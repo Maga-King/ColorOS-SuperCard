@@ -3,7 +3,7 @@
   "entries": [
     {
       "name": "AndroidManifest.xml",
-      "sha256": "5e50e59b16e49a2689869fc1dc52f865659fcb3675566b620f5caef275961f65",
+      "sha256": "d107a2bd3450ef489e6d29ff17adda60a7297efc0bba642f682d2b26dda16256",
       "size": 14744
     },
     {
@@ -818,8 +818,8 @@
     },
     {
       "name": "classes8.dex",
-      "sha256": "99f0464f17f7ba97b69ca96dd47b35e9d5a513c2dc2433b0bbeeb66ac4d3c61b",
-      "size": 734536
+      "sha256": "4ee494e7c3defaf7dc8d8a4aef990f8b8a387b6abc1a72354ffff86a4ad8dd70",
+      "size": 735436
     },
     {
       "name": "classes9.dex",
@@ -12035,11 +12035,11 @@
   ],
   "kind": "apkFingerprint",
   "payloadFormat": "apk-uncompressed-entries-v1",
-  "payloadSha256": "2192e55642bb2799677353f5f4d882146bce7eafeb16c867c26b6fb7c796941c",
+  "payloadSha256": "459a7bd7c2250219a97cae1dd9bbc2f4ea7ec09ac719b216a92f513c99982c99",
   "schemaVersion": 1,
   "source": {
-    "fileSha256": "750ce358799d9912c6e05ff87e1153948ae0a968dc6374cef9833a347385635a",
-    "path": "SuperCard-0.2.11-unified.apk",
+    "fileSha256": "37aa9d57b6aad8373c1b988f4ee7e4334c9ddcc3d123a0d58f6eadebad8c6ef8",
+    "path": "SuperCard-0.2.12-unified.apk",
     "size": 42262766
   }
 }

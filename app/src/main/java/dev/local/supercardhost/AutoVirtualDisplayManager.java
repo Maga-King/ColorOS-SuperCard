@@ -20,17 +20,24 @@ public final class AutoVirtualDisplayManager {
     static final String PACKAGE = "dev.local.supercardhost";
     static final String START = PACKAGE + ".START_ROOT_DISPLAY";
     static final String ANNOUNCE = PACKAGE + ".ROOT_DISPLAY_SERVICE";
+    static final String PAYMENT_DEMAND = "paymentDemand";
     private static final String TAG = "SuperCardAutoDisplay";
+    private static final long QUICK_RETRY_MS = 3_000;
     private static final long RETRY_MS = 30_000;
     private static Handler worker;
     private static Context app;
     private static volatile IBinder backend;
     private static long lastAttempt = -RETRY_MS;
     private static int attempts;
+    private static boolean paymentRequested;
 
     private AutoVirtualDisplayManager() {}
 
-    public static synchronized void start(Context context, Runnable finished) {
+    public static void start(Context context, Runnable finished) {
+        start(context, false, finished);
+    }
+
+    static synchronized void start(Context context, boolean paymentDemand, Runnable finished) {
         if (!PACKAGE.equals(context.getPackageName())) {
             if (finished != null) finished.run();
             return;
@@ -61,6 +68,7 @@ public final class AutoVirtualDisplayManager {
             }, new IntentFilter(ANNOUNCE), "android.permission.DUMP", null, Context.RECEIVER_EXPORTED);
         }
         worker.post(() -> {
+            if (paymentDemand) paymentRequested = true;
             try { launchIfNeeded(); }
             finally { if (finished != null) finished.run(); }
         });
@@ -69,12 +77,22 @@ public final class AutoVirtualDisplayManager {
     private static final Runnable RETRY = () -> launchIfNeeded();
 
     private static void launchIfNeeded() {
+        long remainingDelay = -1;
         try {
             IBinder current = backend;
-            if (current != null && current.isBinderAlive()) return;
+            if (current != null && current.isBinderAlive()) {
+                paymentRequested = false;
+                return;
+            }
             long now = SystemClock.elapsedRealtime();
-            long delay = attempts < 5 ? 3_000 : RETRY_MS;
-            if (now - lastAttempt < delay) return;
+            long delay = paymentRequested || attempts < 5 ? QUICK_RETRY_MS : RETRY_MS;
+            if (now - lastAttempt < delay) {
+                remainingDelay = delay - (now - lastAttempt);
+                return;
+            }
+            // An explicit card request bypasses background backoff once, while still
+            // sharing the three-second debounce with every other startup trigger.
+            paymentRequested = false;
             lastAttempt = now;
             attempts++;
             String apk = app.getApplicationInfo().sourceDir;
@@ -105,7 +123,8 @@ public final class AutoVirtualDisplayManager {
         finally {
             worker.removeCallbacks(RETRY);
             if (backend == null || !backend.isBinderAlive()) {
-                worker.postDelayed(RETRY, attempts < 5 ? 3_000 : RETRY_MS);
+                worker.postDelayed(RETRY, remainingDelay >= 0 ? remainingDelay
+                        : attempts < 5 ? QUICK_RETRY_MS : RETRY_MS);
             }
         }
     }

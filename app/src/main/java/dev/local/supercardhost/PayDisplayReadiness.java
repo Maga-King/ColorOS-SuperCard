@@ -34,7 +34,7 @@ final class PayDisplayReadiness {
             Intent intent = (Intent) chain.getArg(1);
             pending = new Pending(host, view, function, intent == null ? null : new Intent(intent),
                     launch, fallback, reset);
-            RootDisplayClient.requestBackend();
+            RootDisplayClient.requestBackendForPayment();
             Toast.makeText(host, "正在准备卡片，请稍候", Toast.LENGTH_SHORT).show();
             MAIN.postDelayed(pending, 100);
             return null;

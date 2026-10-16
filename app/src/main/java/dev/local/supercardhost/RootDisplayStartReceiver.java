@@ -9,6 +9,7 @@ public final class RootDisplayStartReceiver extends BroadcastReceiver {
     @Override public void onReceive(Context context, Intent intent) {
         if (!AutoVirtualDisplayManager.START.equals(intent.getAction())) return;
         PendingResult pending = goAsync();
-        AutoVirtualDisplayManager.start(context, pending::finish);
+        AutoVirtualDisplayManager.start(context,
+                intent.getBooleanExtra(AutoVirtualDisplayManager.PAYMENT_DEMAND, false), pending::finish);
     }
 }

@@ -16,6 +16,7 @@ import android.os.IBinder;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Parcel;
+import android.os.SystemClock;
 import android.util.Log;
 import android.view.Surface;
 import java.lang.reflect.Method;
@@ -31,6 +32,7 @@ public final class RootDisplayClient {
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static Application host;
     private static boolean starterBound;
+    private static long lastPaymentDemand = -3_000;
     private static final ServiceConnection STARTER = new ServiceConnection() {
         @Override public void onServiceConnected(ComponentName name, IBinder binder) {
             Log.i(TAG, "APK starter service connected");
@@ -114,6 +116,26 @@ public final class RootDisplayClient {
             Log.i(TAG, "Requested APK starter binding, accepted=" + starterBound);
             if (starterBound) MAIN.postDelayed(RELEASE_STARTER, 12_000);
         } catch (Throwable error) { Log.w(TAG, "Cannot bind APK root starter", error); }
+    }
+
+    static void requestBackendForPayment() {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            MAIN.post(RootDisplayClient::requestBackendForPayment);
+            return;
+        }
+        if (host == null || isReady()) return;
+        requestBackend();
+        long now = SystemClock.elapsedRealtime();
+        if (now - lastPaymentDemand < 3_000) return;
+        lastPaymentDemand = now;
+        try {
+            // A binding may already be pending from routine startup. The existing
+            // privileged receiver also delivers this demand to that running app.
+            host.sendBroadcast(new Intent(AutoVirtualDisplayManager.START).setClassName(
+                    AutoVirtualDisplayManager.PACKAGE,
+                    AutoVirtualDisplayManager.PACKAGE + ".RootDisplayStartReceiver")
+                    .putExtra(AutoVirtualDisplayManager.PAYMENT_DEMAND, true));
+        } catch (Throwable error) { Log.w(TAG, "Cannot request payment backend startup", error); }
     }
 
     private static void releaseStarter() {

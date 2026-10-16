@@ -10,6 +10,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw '构建输入校验失败' }
     python tools/test_pay_users.py
     if ($LASTEXITCODE -ne 0) { throw 'PAY 用户路由离线测试失败' }
+    python tools/test_pay_startup.py
+    if ($LASTEXITCODE -ne 0) { throw 'PAY 启动退避离线测试失败' }
     python tools/rebuild_assets.py
     if ($LASTEXITCODE -ne 0) { throw '补丁 DEX 再生与现有资产不一致' }
     $gradleArgs = @(':app:clean', ':app:assembleDebug', '--no-daemon', '--console', 'plain')

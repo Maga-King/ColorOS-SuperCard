@@ -269,7 +269,7 @@ public final class MemoryImportBridge {
                         }
                         HISTORY.remove(guid);
                         attempt = old.attempt + 1;
-                        Log.i(TAG, "Retrying failed import before any native write, attempt=" + attempt + "/3");
+                        Log.i(TAG, "Retrying failed import before any native write, attempt=" + attempt);
                     } else { reply(pending, replied, old.snapshot()); return; }
                 }
                 if (active != null) {
@@ -1276,7 +1276,9 @@ public final class MemoryImportBridge {
         }
         synchronized boolean isComplete() { return complete; }
         synchronized boolean canRetryBeforeWrite() {
-            return attempt < 3 && complete && "native_error".equals(status) && !writeAttempted
+            // The caller bounds automatic retries per save. A later explicit save must
+            // remain retryable after a confirmed pre-write failure of the same draft.
+            return complete && "native_error".equals(status) && !writeAttempted
                     && !nativeDone && (nativeId == null || nativeId.isEmpty()) && ids.isEmpty();
         }
         void deleteVoiceCopy() {

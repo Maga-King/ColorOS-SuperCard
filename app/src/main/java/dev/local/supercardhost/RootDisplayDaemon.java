@@ -14,7 +14,6 @@ import android.os.Looper;
 import android.os.Parcel;
 import android.os.Process;
 import android.os.RemoteException;
-import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
 import android.view.Surface;
@@ -54,8 +53,6 @@ public final class RootDisplayDaemon extends Binder {
     private final Handler main;
     private final String nonce;
     private final int systemUiUid;
-    private final int maximumEdge;
-    private final int maximumDensity;
     private final Object lock = new Object();
     private final Bundle announcementOptions;
     private final Method sendBroadcastWithOptions;
@@ -78,16 +75,6 @@ public final class RootDisplayDaemon extends Binder {
         if (systemUiUid <= 0) throw new IllegalStateException("SystemUI UID unavailable");
         this.displayManager = context.getSystemService(DisplayManager.class);
         if (displayManager == null) throw new IllegalStateException("DisplayManager unavailable");
-
-        Display physicalDisplay = displayManager.getDisplay(Display.DEFAULT_DISPLAY);
-        if (physicalDisplay == null) throw new IllegalStateException("Physical display unavailable");
-        DisplayMetrics metrics = new DisplayMetrics();
-        physicalDisplay.getRealMetrics(metrics);
-        this.maximumEdge = Math.max(metrics.widthPixels, metrics.heightPixels);
-        this.maximumDensity = metrics.densityDpi;
-        if (maximumEdge <= 0 || maximumDensity <= 0) {
-            throw new IllegalStateException("Physical display bounds unavailable");
-        }
 
         // Sharing the real sender UID lets the registered SystemUI receiver reject
         // forged announcements before it accepts the Binder or nonce.
@@ -265,11 +252,14 @@ public final class RootDisplayDaemon extends Binder {
             int flags = data.readInt();
             data.enforceNoDataAvail();
             if (!DISPLAY_NAME.equals(name)) throw new IllegalArgumentException("Unexpected display name");
-            if (width <= 0 || height <= 0 || width > maximumEdge || height > maximumEdge) {
-                throw new IllegalArgumentException("Display dimensions exceed physical screen bounds");
+            // Match vivo's VirtualDisplayWrapper: pass the card's own geometry and
+            // density to DisplayManager. Virtual displays need not fit the physical
+            // screen or use its DPI (including after a resolution/fold-state change).
+            if (width <= 0 || height <= 0) {
+                throw new IllegalArgumentException("Display dimensions must be positive");
             }
-            if (density <= 0 || density > maximumDensity) {
-                throw new IllegalArgumentException("Display density exceeds physical screen density");
+            if (density <= 0) {
+                throw new IllegalArgumentException("Display density must be positive");
             }
             if (surface == null || !surface.isValid()) {
                 throw new IllegalArgumentException("A valid client Surface is required");
