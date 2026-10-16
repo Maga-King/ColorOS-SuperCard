@@ -150,7 +150,12 @@ public final class MemoryVoiceLimit {
                 // Reuse the original unselected record drawable and colors. Screen disabling
                 // uses its native icon/label alpha transition, not a dimmed root View alpha.
                 style.invoke(record, "record", enabled, locked.getBoolean(bottom));
-                ((View) record).setEnabled(enabled);
+                View recordView = (View) record;
+                recordView.setEnabled(enabled);
+                // IconTextButton.setEnabled(true) makes both icon layers clickable, even
+                // the transparent one, so they swallow the parent's recording gestures.
+                // Its setClickable override restores all decorative children to non-clickable.
+                recordView.setClickable(recordView.isClickable());
             } catch (Throwable error) { report(error); }
         }
 

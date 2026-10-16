@@ -88,6 +88,10 @@ public final class SelfSettingsCompat {
             return null;
         }
         if (name.equals("queryCameraFunctions")) return cameraFunctions(receiver, owner.getClassLoader());
+        if (name.equals("processCameraFunctionFormat")) {
+            LensSettingsValues.formatOriginal(receiver, args[0], args[1]);
+            return null;
+        }
         if (name.equals("queryCameraFuncNameChanged")) return null;
         if (name.equals("getCameraFunType") && Integer.valueOf(17).equals(args[0])) return "master";
         if (name.equals("getResIdByName")) {

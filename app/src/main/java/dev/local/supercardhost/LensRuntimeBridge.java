@@ -23,7 +23,7 @@ import java.util.WeakHashMap;
 
 import io.github.libxposed.api.XposedModule;
 
-/** Supplies real ColorOS camera modes to the original vivo Lens card and settings. */
+/** Supplies fixed ColorOS camera choices to the original vivo Lens card and settings. */
 public final class LensRuntimeBridge {
     private static final String TAG = "SuperCardLens";
     private static final String PREFIX = "coloros17:";
@@ -65,7 +65,7 @@ public final class LensRuntimeBridge {
                         method(bean, "setOption", String.class).invoke(value, PREFIX + mode.type());
                         result.add(value);
                     }
-                    Log.i(TAG, "Real camera capabilities supplied to original Lens, modes=" + result.size());
+                    Log.i(TAG, "Fixed Lens choices supplied, modes=" + result.size());
                 } catch (Throwable error) {
                     Log.e(TAG, "Cannot query ColorOS camera capabilities", error);
                 }
@@ -75,6 +75,10 @@ public final class LensRuntimeBridge {
             Class<?> cardType = loader.loadClass("com.vivo.card.model.CardSetBean$CardBean");
             Method format = method(initializer, "processCameraFunctionFormat",
                     configuration, cardType, boolean.class);
+            module.hook(format).intercept(chain -> {
+                LensSettingsValues.formatOriginal(chain.getThisObject(), chain.getArg(0), chain.getArg(1));
+                return null;
+            });
             Field settingsManager = field(initializer, "settingsManager");
             module.hook(method(initializer, "init")).intercept(chain -> {
                 Object result = chain.proceed();
@@ -147,7 +151,7 @@ public final class LensRuntimeBridge {
                 return null;
             });
             // This old provider only reports vivo's alternate localized mode names.
-            // Names and support now come from the original card resources and real modes.
+            // Names and choices now come from the bundled resources and fixed mode list.
             module.hook(method(initializer, "queryCameraFuncNameChanged")).intercept(chain -> null);
             installUnlockContinuation(module, loader);
             Class<?> compose = loader.loadClass("androidx.compose.foundation.lazy.LazyDslKt");

@@ -15,6 +15,7 @@ final class RuntimeStatus {
         result.putBoolean("systemUiHook", hooked);
         result.putBoolean("rootDisplayReady", RootDisplayClient.isReady());
         result.putBundle("payTouchOverrides", PayTouchSettings.read(context));
+        if (PayUserRouting.ready) result.putBundle("payUsers", PayUserSettings.read(context));
         return result;
     }
 }

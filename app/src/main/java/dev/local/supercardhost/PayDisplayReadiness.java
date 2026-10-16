@@ -24,6 +24,8 @@ final class PayDisplayReadiness {
         Method launch = method(type, "launchVirtualDisplayPayment", String.class, Intent.class);
         Method fallback = method(type, "onBottomUpSchemeMultiLaunch", String.class);
         Method reset = method(type, "resetCard");
+        var fallbackType = type.getDeclaredField("bottomUpSchemeMultiLaunchOpenType");
+        fallbackType.setAccessible(true);
         module.hook(launch).intercept(chain -> {
             cancel();
             if (RootDisplayClient.isReady()) return chain.proceed();
@@ -50,6 +52,9 @@ final class PayDisplayReadiness {
         }
         // A backend death during launch must not trigger the original fullscreen fallback.
         module.hook(method(type, "bottomUpRunnable$lambda$0", type)).intercept(chain -> {
+            String function = (String) fallbackType.get(chain.getArg(0));
+            if (function != null && function.startsWith("wx"))
+                PayRuntimeBridge.reportWeChatFallback(function);
             if (RootDisplayClient.isReady()) return chain.proceed();
             reset.invoke(chain.getArg(0));
             RootDisplayClient.requestBackend();

@@ -31,6 +31,7 @@ public final class PayRuntimeBridge {
     private static volatile Object activeManager;
     private static volatile long launchGeneration;
     private static volatile String activeFunction;
+    private static volatile int activeUser = -1;
     private static volatile Method isActiveMethod;
     private static volatile Method displayIdMethod;
     private static Method taskIdMethod;
@@ -81,6 +82,7 @@ public final class PayRuntimeBridge {
             if (activityManager == null) throw new IllegalStateException("ActivityManager unavailable");
             cardPlugin = plugin;
             hostApplication = host;
+            PayUserRouting.install(module, host, pluginLoader);
             PayDisplayReadiness.install(module, host, pluginLoader);
 
             Method launch = findMethod(managerType, "launchPayment",
@@ -90,12 +92,17 @@ public final class PayRuntimeBridge {
                 public Object intercept(XposedInterface.Chain chain) throws Throwable {
                     // Store the manager before the original launch flow starts its activity.
                     try {
+                        String function = (String) chain.getArg(0);
+                        int user = PayUserSettings.resolve(host, function);
                         activeManager = chain.getThisObject();
-                        activeFunction = (String) chain.getArg(0);
+                        activeFunction = function;
+                        activeUser = user;
                         observedPaymentPage = null;
                         launchGeneration++;
                     } catch (Throwable error) {
                         failure("capture payment manager", error);
+                        PayUserRouting.failed(host, error);
+                        return null;
                     }
                     return chain.proceed();
                 }
@@ -118,7 +125,33 @@ public final class PayRuntimeBridge {
 
     /** Returns only the original manager's current, active virtual display. */
     public static int getWeChatRideDisplayId() {
-        return "wx_ride".equals(activeFunction) ? getActiveDisplayId() : -1;
+        return "wx_ride".equals(activeFunction) || "wx2_ride".equals(activeFunction)
+                ? getActiveDisplayId() : -1;
+    }
+
+    static long getLaunchGeneration() { return launchGeneration; }
+
+    static int userForFunction(android.content.Context host, String function) {
+        if (function.equals(activeFunction) && activeUser >= 0) return activeUser;
+        return PayUserSettings.resolve(host, function);
+    }
+
+    static int userForApp(android.content.Context host, String app) {
+        if (app.equals(PayUserSettings.appForFunction(activeFunction)) && activeUser >= 0) return activeUser;
+        return PayUserSettings.resolve(host, PayUserSettings.WECHAT.equals(app) ? "wx_pay" : "alipay_pay");
+    }
+
+    static void userChanged(String app) {
+        if (!app.equals(PayUserSettings.appForFunction(activeFunction))) return;
+        // Do not restore an old-account task after changing the preference in the host app.
+        Object manager = activeManager;
+        activeManager = null;
+        activeFunction = null;
+        activeUser = -1;
+        observedPaymentPage = null;
+        ++launchGeneration;
+        if (manager != null) try { findMethod(manager.getClass(), "release").invoke(manager); }
+        catch (Exception error) { failure("release previous PAY user", error); }
     }
 
     public static int getActiveDisplayId() {
@@ -132,6 +165,31 @@ public final class PayRuntimeBridge {
             failure("read payment display", error);
             return -1;
         }
+    }
+
+    /** One snapshot on an actual OEM timeout, never a log in the polling loop. */
+    static void reportWeChatFallback(String function) {
+        Handler handler = worker;
+        if (handler == null) return;
+        int display = getActiveDisplayId();
+        boolean ready = RootDisplayClient.isReady();
+        handler.post(() -> {
+            try {
+                var info = hostApplication.getPackageManager().getPackageInfo("com.tencent.mm", 0);
+                StringBuilder pages = new StringBuilder();
+                int count = 0;
+                for (ActivityManager.RunningTaskInfo task : activityManager.getRunningTasks(30)) {
+                    ComponentName top = task.topActivity;
+                    if (top == null || !"com.tencent.mm".equals(top.getPackageName())) continue;
+                    if (count++ >= 6) break;
+                    if (pages.length() > 0) pages.append(", ");
+                    pages.append(top.getClassName()).append("@display=").append(taskDisplay(task));
+                }
+                Log.w(TAG, "WeChat launch timeout: function=" + function + " version=" + info.versionName
+                        + "/" + info.getLongVersionCode() + " backendReady=" + ready
+                        + " requestedDisplay=" + display + " pages=[" + pages + "]");
+            } catch (Throwable error) { failure("report WeChat launch timeout", error); }
+        });
     }
 
     private static void installTouchPolicy(XposedModule module, ClassLoader loader) throws Exception {
@@ -187,6 +245,7 @@ public final class PayRuntimeBridge {
             try {
                 Object manager = activeManager;
                 long generation = launchGeneration;
+                int user = activeUser;
                 int display = getActiveDisplayId();
                 if (previousDisplay > 0 && display < 0) {
                     MAIN.post(() -> {
@@ -204,7 +263,8 @@ public final class PayRuntimeBridge {
                     int taskDisplay = taskDisplay(task);
                     if (main == null && taskDisplay == 0) main = task;
                     if (payment == null && display > 0 && taskDisplay == display
-                            && isPaymentPackage(task.topActivity.getPackageName())) {
+                            && isPaymentPackage(task.topActivity.getPackageName())
+                            && (user < 0 || task.getClass().getField("userId").getInt(task) == user)) {
                         payment = task;
                     }
                 }

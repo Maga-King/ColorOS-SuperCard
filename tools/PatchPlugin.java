@@ -28,7 +28,7 @@ public final class PatchPlugin {
         Map.entry("Lcom/vivo/card/utils/ExtensionsKt;", Set.of("setSpanSummaryExText")),
         Map.entry("Lcom/vivo/card/utils/SettingsUtils$Secure;", Set.of("getString")),
         Map.entry("Lcom/vivo/card/cards/commondata/local/CardSettingsManager;", Set.of("getCardSetBean")),
-        Map.entry("Lcom/vivo/card/data/CardDataInitializer;", Set.of("handleSwitchStateOnFirstBoot", "getOrLoadDefaultJson", "getCameraFunType", "queryCameraFunctions", "queryCameraFuncNameChanged", "isStagingCardPluginAvailable", "init")),
+        Map.entry("Lcom/vivo/card/data/CardDataInitializer;", Set.of("handleSwitchStateOnFirstBoot", "getOrLoadDefaultJson", "getCameraFunType", "queryCameraFunctions", "queryCameraFuncNameChanged", "processCameraFunctionFormat", "isStagingCardPluginAvailable", "init")),
         Map.entry("Lcom/vivo/card/cards/cardcamera/utils/CameraCardUtils;", Set.of("getResIdByName", "getStringByResName")),
         Map.entry("Lcom/vivo/card/utils/CardUtil;", Set.of("getStringByResName", "createViewToBitmap")));
 

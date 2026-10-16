@@ -1,6 +1,6 @@
 # 卡包自身设置适配
 
-统一包不依赖框架把模块本身加入作用域。`PatchPlugin.java` 为原版 DEX 的 24 个明确方法保留 `supercardOriginal$` 实现，并在原入口调用 `SelfSettingsCompat`。
+统一包不依赖框架把模块本身加入作用域。`PatchPlugin.java` 为原版 DEX 的 25 个明确方法保留 `supercardOriginal$` 实现，并在原入口调用 `SelfSettingsCompat`。
 
 - 仅主进程 `dev.local.supercardhost` 执行静态适配。SystemUI 使用相同 DEX 时直接调用保留的原实现，继续由现有外部 Hook 适配。
 - Vector 仍可发送自身加载回调；统一包的 `OriginalAppCompat` 会跳过重复 Hook。
@@ -11,6 +11,8 @@
 
 券在原版设置列表使用静态缩略图，不实例化券插件。实际卡片插件、券数据刷新、相机启动及解锁继续由 SystemUI 的现有 Hook 负责；这些不因自身迁移而改成独立运行。
 
-修改 DEX 补丁后先输出到新的临时目录检查 `self-settings-report.txt`，确认 24 个入口及 PAY 66 个密度调用断言通过，再更新 `app/src/main/assets/supercard-code.zip`。随后再次运行 `tools/rebuild_assets.py`，两份资产都应报告 `IDENTICAL DEX`。不要把只有宿主代码的中间 APK 安装到手机。
+LENS 的 `processCameraFunctionFormat` 同步填充固定模式和启动信息，替代原版依赖相机 Provider 的异步格式化。已有选择、排序和背景保留；缺失条目从统一包内原版模板补齐，没有可用选择时恢复六个默认选择。SystemUI 和自身设置共用同一实现。
+
+修改 DEX 补丁后先输出到新的临时目录检查 `self-settings-report.txt`，确认 25 个入口及 PAY 66 个密度调用断言通过，再更新 `app/src/main/assets/supercard-code.zip`。随后再次运行 `tools/rebuild_assets.py`，两份资产都应报告 `IDENTICAL DEX`。不要把只有宿主代码的中间 APK 安装到手机。
 
 设备检查应包含原设置页、PAY 编辑、工具设置入口，以及 SystemUI 的 PAY 展开；检查 `SuperCardSelf` 启用日志和是否出现 `VerifyError` / `NoClassDefFoundError`。静态构建通过不能代替这些设备验证。

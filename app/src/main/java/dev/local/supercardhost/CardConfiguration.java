@@ -45,7 +45,8 @@ public final class CardConfiguration {
                     if ("openFloatSettings".equals(intent.getStringExtra("operation"))) {
                         result = new Bundle(); result.putBoolean("opened", true);
                     } else if ("diagnostics".equals(intent.getStringExtra("operation"))
-                            || "payTouch".equals(intent.getStringExtra("operation"))) {
+                            || "payTouch".equals(intent.getStringExtra("operation"))
+                            || "payUser".equals(intent.getStringExtra("operation"))) {
                         result = RuntimeStatus.read(host);
                     } else result = read(host);
                     setResultCode(Activity.RESULT_OK); setResultExtras(result);
@@ -68,7 +69,7 @@ public final class CardConfiguration {
         // restart must not wedge the client's querying/previewSending flags.
         boolean bounded = callback != null && ("query".equals(operation) || "preview".equals(operation)
                 || "openFloatSettings".equals(operation) || "diagnostics".equals(operation)
-                || "payTouch".equals(operation));
+                || "payTouch".equals(operation) || "payUser".equals(operation));
         AtomicBoolean completed = new AtomicBoolean();
         Runnable timeout = () -> {
             if (completed.compareAndSet(false, true)) callback.complete(null,
@@ -96,6 +97,17 @@ public final class CardConfiguration {
     private static void apply(Context context, Intent intent) {
         String operation = intent.getStringExtra("operation");
         if ("query".equals(operation) || "diagnostics".equals(operation)) return;
+        if ("payUser".equals(operation)) {
+            if (!PayUserRouting.ready) throw new IllegalStateException("启动用户功能尚未加载");
+            if (!intent.hasExtra("user") || !(intent.getExtras().get("user") instanceof Integer))
+                throw new IllegalArgumentException("Missing PAY user");
+            String app = intent.getStringExtra("app");
+            int old = PayUserSettings.selected(context, app);
+            int user = intent.getIntExtra("user", -1);
+            PayUserSettings.save(context, app, user);
+            if (old != user) PayRuntimeBridge.userChanged(app);
+            return;
+        }
         if ("payTouch".equals(operation)) {
             if (!intent.hasExtra("value") || !(intent.getExtras().get("value") instanceof Boolean))
                 throw new IllegalArgumentException("Missing PAY touch value");

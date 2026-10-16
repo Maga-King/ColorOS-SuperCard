@@ -111,16 +111,16 @@
 
 2026-10-09 手机端 root `app_process` / `PathClassLoader` 元数据探针完成 5 类角色定位，耗时 320ms。尚未在注入的小布目标进程中强制执行 DexKit fallback；该结果不作为目标进程 JNI 装载或导入业务成功的证明。
 
-## 5. ColorOS 相机：使用原生能力查询和 Intent，未 Hook 相机混淆类
+## 5. ColorOS 相机：固定模式列表和原生 Intent，未 Hook 相机混淆类
 
 文件：`ColorOsLensModes.java`，由 `LensRuntimeBridge.java` 接入原 LENS UI。
 
-- 查询 `content://com.oplus.camera.entry/static_info` 的 `mode/rear/front` 64 位能力掩码。
-- 只有当前 Provider 声明的模式才显示/启动；超广角另读 Camera2 元数据，无法唯一确定后摄时省略入口。
-- 启动 `com.oplus.camera.Camera`，action 为 `com.oplus.camera.action.SHORTCUT_TYPE_MENU`，传入已研究的 `mode/rear/front/zoom`。
-- Provider 缺失、列名变化或查询失败返回空能力列表；不按机型名称猜测模式。
+- 固定提供拍照、人像、录像、夜景、大师、镜子、全景、高像素、微距、星空、文档矫正 11 项；相机或 Provider 尚未就绪也能编辑列表。
+- 设置与运行时共用列表和同步格式化；保留已有选择和排序，补齐旧模板遗漏的条目，不再启动原版异步能力查询和重置选择的回调。
+- 启动 `com.oplus.camera.Camera`，一般使用 `com.oplus.camera.action.SHORTCUT_TYPE_MENU`；高像素使用 `android.media.action.STILL_IMAGE_CAMERA`，保留已验证的模式 24。大师保持官方快捷方式的模式 4。
+- 固定的是可选入口，不代表每台设备具备全部功能。没有 ColorOS 相机或硬件不支持的模式仍无法实际使用。
 
-限制：Provider authority、列名、模式编号及 Intent 参数是厂商接口，仍可能变化。能力位存在不能独立证明新版本启动语义完全相同；例如大师能力位与实际启动模式之间有特定映射，需要随相机版本验证。没有相机内部 DEX 特征搜索，也没有相机 APK 版本指纹匹配。
+限制：模式编号及 Intent 参数是厂商接口，仍可能随相机版本变化。列表不随机型变化，启动成功与否仍需目标相机验证。没有相机内部 DEX 特征搜索，也没有相机 APK 版本指纹匹配。
 
 `EmbeddedMemoryCamera.java` 的小窗拍照使用 Camera2，不依赖 ColorOS 相机混淆类；它仍依赖设备 HAL 与公开相机能力的正确行为。
 
@@ -181,7 +181,7 @@
 3. 扩展 DexKit 时继续优先稳定业务特征，例如请求路径、Provider 操作字符串、响应模型和调用关系；定位后仍做唯一性、完整签名与只读行为验证。新增版本用只读强制回退 probe 检查；DexKit 结果不能直接授权写入。
 4. 钱包需验证冷启动、原生未登录、授权关闭、合法无码券、读取失败、账号切换、迟到回调、新购券和部分不支持类别。
 5. 小布需验证服务关闭、模型/Provider 失配、真实附件存在、保存确认、超时晚回及不确定结果不重放。
-6. 相机需验证 Provider 返回能力、每个模式的真实启动结果；侧边栏需验证普通 OPPO 页面不变、卡包独立配置、恢复默认和预览结束。
+6. 相机需验证固定列表、旧配置迁移和每个模式的真实启动结果；侧边栏需验证普通 OPPO 页面不变、卡包独立配置、恢复默认和预览结束。
 7. 对发布 APK 做完整构建与资产匹配检查；记录“已验证的 ROM/Android/目标应用版本”，不写“全版本通用”。诊断仅记录版本、结构、错误类型和脱敏计数，不收集账号、设备串号、券码或原始响应内容。
 
 以上改进项是审查建议，不代表已经在当前业务代码中实现。

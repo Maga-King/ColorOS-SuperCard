@@ -1,6 +1,7 @@
 package dev.local.supercardhost;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -24,8 +25,11 @@ public final class HostToolsActivity extends Activity {
             "支付宝乘车码", "微信乘车码", "微信分身扫一扫", "微信分身付款码", "支付宝医保码"};
     private final Handler main = new Handler(Looper.getMainLooper());
     private final Map<String, Switch> switches = new LinkedHashMap<>();
+    private final Map<String, Button> userButtons = new LinkedHashMap<>();
     private Bundle confirmed = new Bundle();
+    private Bundle confirmedUsers = new Bundle();
     private TextView rootStatus, frameworkStatus, hookStatus, displayStatus, setupStatus, message;
+    private TextView userHint;
     private Button refresh;
     private boolean rendering, connected, busy, rootBusy;
     private long requestGeneration;
@@ -67,10 +71,21 @@ public final class HostToolsActivity extends Activity {
         refresh.setOnClickListener(view -> { checkRoot(true); refreshSetup(true); query(); });
         body.addView(refresh);
         body.addView(text("Root 仅在首次打开或点击刷新时检测；授权检测最长等待 12 秒。", 14, true));
-        body.addView(text("PAY 页面触摸", 20, false));
-        body.addView(text("默认关闭时沿用原版触摸名单。开启后，允许对应功能的目标应用页面接收触摸。关闭不会禁用原版已允许的页面。", 15, true));
         message = text("正在读取设置…", 14, true);
         body.addView(message);
+        body.addView(text("PAY 启动用户", 20, false));
+        userHint = text("微信和支付宝分别选择，默认主用户。创建分身后点刷新；保存后下次打开卡片生效。原有微信分身专用项始终使用分身。", 15, true);
+        body.addView(userHint);
+        for (String app : PayUserSettings.APPS) {
+            Button button = new Button(this);
+            button.setText(appLabel(app) + "：正在读取…");
+            button.setEnabled(false);
+            button.setOnClickListener(view -> chooseUser(app));
+            userButtons.put(app, button);
+            body.addView(button);
+        }
+        body.addView(text("PAY 页面触摸", 20, false));
+        body.addView(text("默认关闭时沿用原版触摸名单。开启后，允许对应功能的目标应用页面接收触摸。关闭不会禁用原版已允许的页面。", 15, true));
         for (int i = 0; i < FUNCTIONS.length; i++) {
             String function = FUNCTIONS[i];
             Switch toggle = new Switch(this);
@@ -145,6 +160,30 @@ public final class HostToolsActivity extends Activity {
         request("payTouch", values, true);
     }
 
+    private void chooseUser(String app) {
+        if (!connected || busy) return;
+        Bundle state = confirmedUsers.getBundle(app);
+        if (state == null) return;
+        int[] users = state.getIntArray("users");
+        if (users == null || users.length == 0) return;
+        String[] labels = new String[users.length];
+        int selected = state.getInt("selected", 0), checked = -1;
+        for (int i = 0; i < users.length; ++i) {
+            labels[i] = userLabel(users[i]);
+            if (users[i] == selected) checked = i;
+        }
+        new AlertDialog.Builder(this).setTitle(appLabel(app) + "启动用户")
+                .setSingleChoiceItems(labels, checked, (dialog, which) -> {
+                    dialog.dismiss();
+                    if (!connected || busy || users[which] == selected) return;
+                    Bundle values = new Bundle();
+                    values.putString("app", app);
+                    values.putInt("user", users[which]);
+                    message.setText("正在保存启动用户…");
+                    request("payUser", values, true);
+                }).setNegativeButton("取消", null).show();
+    }
+
     private void request(String operation, Bundle values, boolean saving) {
         busy = true;
         updateEnabled();
@@ -156,9 +195,17 @@ public final class HostToolsActivity extends Activity {
                 if (!alive() || generation != requestGeneration || !busy) return;
                 main.removeCallbacks(timeout);
                 String failure = error;
-                if (saving && failure == null && validDiagnostics(state)
-                        && state.getBundle("payTouchOverrides").getBoolean(values.getString("function"), false)
-                        != values.getBoolean("value")) failure = "unconfirmed";
+                if (saving && failure == null && validDiagnostics(state)) {
+                    if ("payTouch".equals(operation)
+                            && state.getBundle("payTouchOverrides").getBoolean(values.getString("function"), false)
+                            != values.getBoolean("value")) failure = "unconfirmed";
+                    if ("payUser".equals(operation)) {
+                        Bundle users = state.getBundle("payUsers");
+                        Bundle app = users == null ? null : users.getBundle(values.getString("app"));
+                        if (!validUsers(users) || app == null || app.getInt("selected", -1) != values.getInt("user"))
+                            failure = "unconfirmed";
+                    }
+                }
                 finishRequest(generation, state, failure, saving);
             }));
         } catch (RuntimeException error) {
@@ -181,12 +228,14 @@ public final class HostToolsActivity extends Activity {
         } else {
             connected = true;
             confirmed = new Bundle(state.getBundle("payTouchOverrides"));
+            confirmedUsers = validUsers(state.getBundle("payUsers"))
+                    ? new Bundle(state.getBundle("payUsers")) : new Bundle();
             frameworkStatus.setText("框架：" + state.getString("framework") + " "
                     + String.valueOf(state.get("frameworkVersion")));
             hookStatus.setText("SystemUI 激活：已连接并确认激活");
             displayStatus.setText("虚拟屏后端：" + (state.getBoolean("rootDisplayReady") ? "已就绪" : "尚未就绪"));
             renderSwitches();
-            message.setText(saving ? "已保存。关闭的功能沿用原版触摸名单。" : "已读取。关闭的功能沿用原版触摸名单。");
+            message.setText(saving ? "已保存。启动用户在下次打开卡片时生效。" : "设置已读取。");
         }
         updateEnabled();
     }
@@ -204,17 +253,50 @@ public final class HostToolsActivity extends Activity {
         return true;
     }
 
+    private boolean validUsers(Bundle users) {
+        if (users == null) return false;
+        for (String app : PayUserSettings.APPS) {
+            Bundle state = users.getBundle(app);
+            if (state == null || !(state.get("selected") instanceof Integer)
+                    || !(state.get("available") instanceof Boolean)
+                    || !(state.get("users") instanceof int[])) return false;
+            int[] ids = state.getIntArray("users");
+            if (ids.length == 0 || ids[0] != 0) return false;
+            for (int i = 1; i < ids.length; ++i) if (ids[i] <= ids[i - 1]) return false;
+        }
+        return true;
+    }
+
+    private static String appLabel(String app) {
+        return PayUserSettings.WECHAT.equals(app) ? "微信" : "支付宝";
+    }
+
+    private static String userLabel(int id) {
+        return id == 0 ? "主用户" : "多开用户（" + id + "）";
+    }
+
     private void renderSwitches() {
         rendering = true;
         try {
             for (Map.Entry<String, Switch> entry : switches.entrySet())
                 entry.getValue().setChecked(confirmed.getBoolean(entry.getKey(), false));
+            for (Map.Entry<String, Button> entry : userButtons.entrySet()) {
+                Bundle state = confirmedUsers.getBundle(entry.getKey());
+                entry.getValue().setText(appLabel(entry.getKey()) + "：" + (state == null ? "尚未读取"
+                        : userLabel(state.getInt("selected", 0))
+                        + (state.getBoolean("available") ? "" : "（未安装或不可用）")));
+            }
+            if (connected && confirmedUsers.isEmpty())
+                userHint.setText("启动用户功能尚未加载；更新模块后需重启手机，再刷新此页。");
+            else userHint.setText("微信和支付宝分别选择，默认主用户。创建分身后点刷新；保存后下次打开卡片生效。原有微信分身专用项始终使用分身。");
         } finally { rendering = false; }
     }
 
     private void updateEnabled() {
         if (refresh != null) refresh.setEnabled(!busy && !rootBusy);
         for (Switch toggle : switches.values()) toggle.setEnabled(connected && !busy);
+        for (Map.Entry<String, Button> entry : userButtons.entrySet())
+            entry.getValue().setEnabled(connected && !busy && confirmedUsers.containsKey(entry.getKey()));
     }
 
     private TextView text(String value, int size, boolean secondary) {

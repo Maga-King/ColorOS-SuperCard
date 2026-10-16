@@ -6,7 +6,6 @@ import android.content.res.Configuration;
 import android.content.SharedPreferences;
 import android.content.Intent;
 import android.os.Bundle;
-import android.app.ActivityOptions;
 import java.io.File;
 
 /** Original package resources/code, with writable state owned by this host. */
@@ -27,19 +26,7 @@ final class PluginContext extends ContextWrapper {
     @Override public Context getApplicationContext() { return host.getApplicationContext(); }
     @Override public void startActivity(Intent intent) { startActivity(intent, null); }
     @Override public void startActivity(Intent intent, Bundle options) {
-        boolean rideLauncher = Intent.ACTION_MAIN.equals(intent.getAction())
-                && intent.getComponent() != null
-                && "com.tencent.mm".equals(intent.getComponent().getPackageName())
-                && PayRuntimeBridge.getWeChatRideDisplayId() > 0;
-        if ("com.tencent.mm.ui.ShortCutDispatchAction".equals(intent.getAction())
-                || "com.tencent.mm.action.BIZSHORTCUT".equals(intent.getAction()) || rideLauncher) {
-            int display = PayRuntimeBridge.getActiveDisplayId();
-            if (display > 0 && options == null) {
-                ActivityOptions routed = ActivityOptions.makeBasic(); routed.setLaunchDisplayId(display);
-                options = routed.toBundle();
-                android.util.Log.i("SuperCardRuntime", "Routing WeChat shortcut to card display=" + display);
-            }
-        }
+        if (PayUserRouting.tryStart(host, intent, options)) return;
         // The host is the actual window/display owner and the real calling package.
         host.startActivity(intent, options);
     }

@@ -38,7 +38,8 @@ public final class PluginRuntime {
             org.lsposed.hiddenapibypass.HiddenApiBypass.addHiddenApiExemptions(
                 "Landroid/content/Context;", "Landroid/view/", "Landroid/hardware/input/",
                 "Landroid/app/", "Landroid/os/", "Landroid/content/res/", "Landroid/graphics/",
-                "Landroid/window/", "Landroid/hardware/display/");
+                "Landroid/window/", "Landroid/hardware/display/", "Landroid/content/pm/UserInfo;",
+                "Lcom/oplus/content/OplusIntent;", "Lcom/oplus/multiapp/");
             if (systemHost) RootDisplayClient.install(host);
             if (systemHost) MemoryTransferConnection.install(host);
             Context resources = SuperCardArchiveResources.open(host, module);

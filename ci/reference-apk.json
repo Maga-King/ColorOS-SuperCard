@@ -3,8 +3,8 @@
   "entries": [
     {
       "name": "AndroidManifest.xml",
-      "sha256": "c1ef8f3a1f0c4b30cbc52bb44beda3311b67745892b633108b8e4babd0913344",
-      "size": 14740
+      "sha256": "5e50e59b16e49a2689869fc1dc52f865659fcb3675566b620f5caef275961f65",
+      "size": 14744
     },
     {
       "name": "META-INF/androidx.activity_activity-compose.version",
@@ -753,8 +753,8 @@
     },
     {
       "name": "assets/supercard-code.zip",
-      "sha256": "416d704bea274882072e8ef12ec8ac8aa4055c2f7bfca3553e9c5e2635301a5b",
-      "size": 12090031
+      "sha256": "a6cced09e5e1b39eb33601ccda9871b1e5b8c0888f419eda1604c9bf3458f88f",
+      "size": 12090162
     },
     {
       "name": "assets/system_effect_scenes_for_vulkan.zip",
@@ -778,8 +778,8 @@
     },
     {
       "name": "classes12.dex",
-      "sha256": "b9080c778905f43cc603d475abddf07982bf1d381d7b9e325138af65a67e6bb8",
-      "size": 7489440
+      "sha256": "e620c88e94e265b17c1091f961d889c1f5671fd2cbdc8bef3ee3ad3ddfef36be",
+      "size": 7489580
     },
     {
       "name": "classes13.dex",
@@ -818,8 +818,8 @@
     },
     {
       "name": "classes8.dex",
-      "sha256": "295ff57acdfbf97157f33869ad9f3f4520d4276d343b621ef78aaa1487cd41b1",
-      "size": 714964
+      "sha256": "99f0464f17f7ba97b69ca96dd47b35e9d5a513c2dc2433b0bbeeb66ac4d3c61b",
+      "size": 734536
     },
     {
       "name": "classes9.dex",
@@ -12035,11 +12035,11 @@
   ],
   "kind": "apkFingerprint",
   "payloadFormat": "apk-uncompressed-entries-v1",
-  "payloadSha256": "947c488f2c9a8965f0497e43d2d85de5ec6d31e43d5fac0cdea1ecc778cd0931",
+  "payloadSha256": "2192e55642bb2799677353f5f4d882146bce7eafeb16c867c26b6fb7c796941c",
   "schemaVersion": 1,
   "source": {
-    "fileSha256": "1f91f92897fbc4d54ca515f4c101d24756f0e44d7a9f990604042a409ce3eff4",
-    "path": "SuperCard-0.2.8-unified.apk",
+    "fileSha256": "750ce358799d9912c6e05ff87e1153948ae0a968dc6374cef9833a347385635a",
+    "path": "SuperCard-0.2.11-unified.apk",
     "size": 42262766
   }
 }
